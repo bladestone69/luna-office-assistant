@@ -53,6 +53,9 @@ export async function GET(request: NextRequest) {
 
       return {
         instructionId: instruction.instructionId || "",
+        campaignName: instruction.clientName || "",
+        phoneNumber: instruction.clientPhone || "",
+        pitchPrompt: instruction.instructionText || "",
         clientName: instruction.clientName || "",
         clientPhone: instruction.clientPhone || "",
         preferredCallTime: instruction.preferredCallTime || "",

@@ -1,144 +1,55 @@
+import Link from "next/link";
 import { InstructionComposer } from "@/components/admin/InstructionComposer";
-import { AdminHumeAssistant } from "@/components/hume/AdminHumeAssistant";
-import { SHEET_COLUMNS, SHEET_TABS } from "@/lib/constants";
-import { getRecentSheetRecords, isSheetsConfigured } from "@/lib/sheets";
+import { isSheetsConfigured } from "@/lib/sheets";
 
-export const dynamic = "force-dynamic";
+export default function AdminDispatchPage() {
+  const sheetsReady = isSheetsConfigured();
 
-function RecordsTable({
-  title,
-  records,
-  columns,
-  exportTab
-}: {
-  title: string;
-  records: Record<string, string>[];
-  columns: readonly string[];
-  exportTab: "instructions" | "ai_feedback" | "bookings";
-}) {
   return (
-    <section className="panel p-5">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-ink">{title}</h2>
-        <a className="btn btn-muted" href={`/api/admin/export?tab=${exportTab}`}>
-          Export CSV
-        </a>
-      </div>
+    <div className="animate-fade-up space-y-6">
+      {!sheetsReady ? (
+        <section className="panel border border-amber-300/60 bg-amber-50 p-4 text-sm text-amber-900">
+          Google Sheets is not configured. Set `GOOGLE_SERVICE_ACCOUNT_EMAIL`,
+          `GOOGLE_PRIVATE_KEY`, and `GOOGLE_SHEETS_SPREADSHEET_ID` to dispatch and track
+          calls.
+        </section>
+      ) : null}
 
-      {!records.length ? (
-        <p className="text-sm text-ink/70">No records available.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-left text-sm">
-            <thead>
-              <tr>
-                {columns.map((column) => (
-                  <th
-                    key={column}
-                    className="border-b border-ink/15 px-2 py-2 font-semibold text-ink"
-                  >
-                    {column}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((record, rowIndex) => (
-                <tr key={`${record.createdAt || "row"}-${rowIndex}`}>
-                  {columns.map((column) => (
-                    <td key={column} className="border-b border-ink/10 px-2 py-2 text-ink/85">
-                      {record[column] || "-"}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
-}
-
-export default async function AdminDashboardPage() {
-  try {
-    const sheetsReady = isSheetsConfigured();
-    const [instructions, aiFeedback, bookings] = sheetsReady
-      ? await Promise.all([
-          getRecentSheetRecords(SHEET_TABS.instructions, 40),
-          getRecentSheetRecords(SHEET_TABS.aiFeedback, 80),
-          getRecentSheetRecords(SHEET_TABS.bookings, 20)
-        ])
-      : [[], [], []];
-
-    const latestFeedbackByInstruction = new Map<string, Record<string, string>>();
-    aiFeedback.forEach((record) => {
-      const instructionId = record.instructionId;
-      if (instructionId && !latestFeedbackByInstruction.has(instructionId)) {
-        latestFeedbackByInstruction.set(instructionId, record);
-      }
-    });
-
-    const instructionQueue = instructions.map((instruction) => {
-      const latest = latestFeedbackByInstruction.get(instruction.instructionId || "");
-      return {
-        ...instruction,
-        status: latest?.status || instruction.status || "pending",
-        lastSummary: latest?.summary || "",
-        lastUpdateAt: latest?.createdAt || instruction.createdAt || ""
-      };
-    });
-
-    const queueColumns = [
-      ...SHEET_COLUMNS.Instructions,
-      "lastSummary",
-      "lastUpdateAt"
-    ] as const;
-
-    return (
-      <div className="space-y-6">
-        {!sheetsReady ? (
-          <section className="panel border border-amber-300/60 bg-amber-50 p-4 text-sm text-amber-900">
-            Google Sheets is not configured. Set `GOOGLE_SERVICE_ACCOUNT_EMAIL`,
-            `GOOGLE_PRIVATE_KEY`, and `GOOGLE_SHEETS_SPREADSHEET_ID` to load and persist
-            dashboard data.
-          </section>
-        ) : null}
-        <InstructionComposer />
-        <AdminHumeAssistant />
-        <RecordsTable
-          title="Instruction Queue"
-          records={instructionQueue}
-          columns={queueColumns}
-          exportTab="instructions"
-        />
-        <RecordsTable
-          title="AI Feedback Feed"
-          records={aiFeedback}
-          columns={SHEET_COLUMNS.AI_Feedback}
-          exportTab="ai_feedback"
-        />
-        <RecordsTable
-          title="Meetings Captured From AI Outcomes"
-          records={bookings}
-          columns={SHEET_COLUMNS.Bookings}
-          exportTab="bookings"
-        />
-      </div>
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return (
       <section className="panel p-6">
-        <h2 className="text-xl font-semibold text-alarm">Dashboard unavailable</h2>
-        <p className="mt-2 text-sm text-ink/80">
-          Could not load Google Sheets data. Check integration setup and environment
-          variables.
-        </p>
-        <pre className="mt-4 overflow-x-auto rounded-lg bg-ink/5 p-3 text-xs text-ink/80">
-          {message}
-        </pre>
+        <h2 className="text-2xl font-semibold text-ink">Dispatch Flow</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <article className="rounded-2xl border border-ink/10 bg-white/80 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/55">Step 1</p>
+            <p className="mt-2 text-sm text-ink/80">Paste the numbers you want EVI to call.</p>
+          </article>
+          <article className="rounded-2xl border border-ink/10 bg-white/80 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/55">Step 2</p>
+            <p className="mt-2 text-sm text-ink/80">
+              Add your pitch prompt that matches the EVI behavior you configured.
+            </p>
+          </article>
+          <article className="rounded-2xl border border-ink/10 bg-white/80 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/55">Step 3</p>
+            <p className="mt-2 text-sm text-ink/80">
+              Open the results screen to monitor status and call outcomes.
+            </p>
+          </article>
+        </div>
       </section>
-    );
-  }
+
+      <InstructionComposer />
+
+      <section className="panel flex flex-wrap items-center justify-between gap-4 p-5">
+        <div>
+          <h3 className="text-lg font-semibold text-ink">Need live outcomes?</h3>
+          <p className="mt-1 text-sm text-ink/70">
+            The results view combines dispatched instructions with the latest AI feedback.
+          </p>
+        </div>
+        <Link href="/admin/results" className="btn">
+          Open Results Screen
+        </Link>
+      </section>
+    </div>
+  );
 }

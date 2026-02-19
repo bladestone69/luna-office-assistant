@@ -82,12 +82,17 @@ export const adminLoginSchema = z.object({
 });
 
 export const instructionCreateSchema = z.object({
-  clientName: requiredTrimmedString("Client name").max(100),
-  clientPhone: requiredTrimmedString("Client phone")
-    .max(25)
-    .regex(phoneRegex, "Enter a valid phone number"),
+  campaignName: z.string().trim().max(100).optional().default(""),
+  phoneNumbers: z
+    .array(
+      requiredTrimmedString("Phone number")
+        .max(25)
+        .regex(phoneRegex, "Enter a valid phone number")
+    )
+    .min(1, "Add at least one phone number")
+    .max(200, "Maximum 200 numbers per dispatch"),
   preferredCallTime: z.string().trim().max(120).optional().default(""),
-  instructionText: requiredTrimmedString("Instruction").max(1500),
+  pitchPrompt: requiredTrimmedString("Pitch prompt").max(1500),
   priority: z.enum(INSTRUCTION_PRIORITIES).default("normal")
 });
 
