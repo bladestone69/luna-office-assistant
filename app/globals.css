@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #0d293a;
+  --sky: #3f88c5;
+  --mint: #5ec4b8;
+  --sand: #f2c572;
+  --paper: #fbf9f4;
+  --alarm: #c84c4c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-space-grotesk), "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at 10% 12%, rgba(94, 196, 184, 0.22), transparent 35%),
+    radial-gradient(circle at 90% 0%, rgba(63, 136, 197, 0.18), transparent 32%),
+    linear-gradient(180deg, #fffdf8 0%, #f7f3ea 100%);
+  color: var(--ink);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.panel {
+  border-radius: 1.25rem;
+  border: 1px solid rgba(13, 41, 58, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 20px 40px -24px rgba(13, 41, 58, 0.35);
+}
+
+.input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(13, 41, 58, 0.22);
+  background: #fff;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.95rem;
+}
+
+.input:focus {
+  outline: 2px solid rgba(63, 136, 197, 0.2);
+  border-color: rgba(63, 136, 197, 0.5);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.8rem;
+  border: 0;
+  background: linear-gradient(120deg, #0d293a 0%, #20587e 100%);
+  color: #fff;
+  font-weight: 600;
+  padding: 0.68rem 1rem;
+  cursor: pointer;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.btn-muted {
+  background: #ebf2f7;
+  color: #12344b;
+}
