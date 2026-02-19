@@ -40,11 +40,13 @@ export default function AdminLoginPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-8">
       <Link href="/" className="mb-5 text-sm font-semibold text-sky">
-        Back to home
+        Operations console
       </Link>
       <form className="panel space-y-4 p-6" onSubmit={onSubmit}>
         <h1 className="text-2xl font-bold text-ink">Admin Login</h1>
-        <p className="text-sm text-ink/75">Restricted dashboard access for Ernest only.</p>
+        <p className="text-sm text-ink/75">
+          Secure access to instruction queue, AI feedback, and booking outcomes.
+        </p>
 
         <label className="block">
           <span className="mb-1 block text-sm font-semibold">Username</span>

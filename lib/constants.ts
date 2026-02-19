@@ -28,7 +28,19 @@ export const URGENT_KEYWORDS = [
   "debit order"
 ];
 
+export const INSTRUCTION_PRIORITIES = ["low", "normal", "high"] as const;
+
+export const INSTRUCTION_STATUSES = [
+  "pending",
+  "in_progress",
+  "completed",
+  "failed",
+  "needs_follow_up"
+] as const;
+
 export const SHEET_TABS = {
+  instructions: "Instructions",
+  aiFeedback: "AI_Feedback",
   leads: "Leads",
   messages: "Messages",
   bookings: "Bookings"
@@ -37,6 +49,29 @@ export const SHEET_TABS = {
 export type SheetTab = (typeof SHEET_TABS)[keyof typeof SHEET_TABS];
 
 export const SHEET_COLUMNS = {
+  Instructions: [
+    "createdAt",
+    "instructionId",
+    "clientName",
+    "clientPhone",
+    "preferredCallTime",
+    "instructionText",
+    "priority",
+    "status",
+    "createdBy",
+    "source"
+  ],
+  AI_Feedback: [
+    "createdAt",
+    "instructionId",
+    "status",
+    "summary",
+    "nextAction",
+    "scheduledStartDateTime",
+    "scheduledEndDateTime",
+    "bookingEventId",
+    "rawPayload"
+  ],
   Leads: [
     "createdAt",
     "name",

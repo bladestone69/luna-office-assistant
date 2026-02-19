@@ -1,5 +1,7 @@
 import { z } from "zod";
 import {
+  INSTRUCTION_PRIORITIES,
+  INSTRUCTION_STATUSES,
   MEETING_TYPE_KEYS,
   TOPIC_OPTIONS,
   URGENCY_OPTIONS
@@ -77,4 +79,34 @@ export const bookingSchema = honeypotSchema.extend({
 export const adminLoginSchema = z.object({
   username: requiredTrimmedString("Username").max(60),
   password: requiredTrimmedString("Password").max(120)
+});
+
+export const instructionCreateSchema = z.object({
+  clientName: requiredTrimmedString("Client name").max(100),
+  clientPhone: requiredTrimmedString("Client phone")
+    .max(25)
+    .regex(phoneRegex, "Enter a valid phone number"),
+  preferredCallTime: z.string().trim().max(120).optional().default(""),
+  instructionText: requiredTrimmedString("Instruction").max(1500),
+  priority: z.enum(INSTRUCTION_PRIORITIES).default("normal")
+});
+
+export const aiFeedbackSchema = z.object({
+  instructionId: requiredTrimmedString("instructionId").max(120),
+  status: z.enum(INSTRUCTION_STATUSES),
+  summary: requiredTrimmedString("summary").max(1800),
+  nextAction: z.string().trim().max(500).optional().default(""),
+  scheduledStartDateTime: z.string().trim().optional().default(""),
+  scheduledEndDateTime: z.string().trim().optional().default(""),
+  bookingEventId: z.string().trim().max(160).optional().default(""),
+  clientName: z.string().trim().max(100).optional().default(""),
+  clientPhone: z.string().trim().max(25).optional().default(""),
+  clientEmail: z
+    .string()
+    .trim()
+    .email("Invalid email")
+    .max(120)
+    .optional()
+    .or(z.literal("")),
+  meetingType: z.string().trim().max(80).optional().default("")
 });

@@ -1,3 +1,4 @@
+import { InstructionComposer } from "@/components/admin/InstructionComposer";
 import { AdminHumeAssistant } from "@/components/hume/AdminHumeAssistant";
 import { SHEET_COLUMNS, SHEET_TABS } from "@/lib/constants";
 import { getRecentSheetRecords } from "@/lib/sheets";
@@ -13,7 +14,7 @@ function RecordsTable({
   title: string;
   records: Record<string, string>[];
   columns: readonly string[];
-  exportTab: "leads" | "messages" | "bookings";
+  exportTab: "instructions" | "ai_feedback" | "bookings";
 }) {
   return (
     <section className="panel p-5">
@@ -61,29 +62,54 @@ function RecordsTable({
 
 export default async function AdminDashboardPage() {
   try {
-    const [leads, messages, bookings] = await Promise.all([
-      getRecentSheetRecords(SHEET_TABS.leads, 20),
-      getRecentSheetRecords(SHEET_TABS.messages, 20),
+    const [instructions, aiFeedback, bookings] = await Promise.all([
+      getRecentSheetRecords(SHEET_TABS.instructions, 40),
+      getRecentSheetRecords(SHEET_TABS.aiFeedback, 80),
       getRecentSheetRecords(SHEET_TABS.bookings, 20)
     ]);
 
+    const latestFeedbackByInstruction = new Map<string, Record<string, string>>();
+    aiFeedback.forEach((record) => {
+      const instructionId = record.instructionId;
+      if (instructionId && !latestFeedbackByInstruction.has(instructionId)) {
+        latestFeedbackByInstruction.set(instructionId, record);
+      }
+    });
+
+    const instructionQueue = instructions.map((instruction) => {
+      const latest = latestFeedbackByInstruction.get(instruction.instructionId || "");
+      return {
+        ...instruction,
+        status: latest?.status || instruction.status || "pending",
+        lastSummary: latest?.summary || "",
+        lastUpdateAt: latest?.createdAt || instruction.createdAt || ""
+      };
+    });
+
+    const queueColumns = [
+      ...SHEET_COLUMNS.Instructions,
+      "lastSummary",
+      "lastUpdateAt"
+    ] as const;
+
     return (
       <div className="space-y-6">
+        <InstructionComposer />
         <AdminHumeAssistant />
         <RecordsTable
-          title="Recent Leads"
-          records={leads}
-          columns={SHEET_COLUMNS.Leads}
-          exportTab="leads"
+          title="Instruction Queue"
+          records={instructionQueue}
+          columns={queueColumns}
+          exportTab="instructions"
         />
         <RecordsTable
-          title="Recent Messages"
-          records={messages}
-          columns={SHEET_COLUMNS.Messages}
-          exportTab="messages"
+          title="AI Feedback Feed"
+          records={aiFeedback}
+          columns={SHEET_COLUMNS.AI_Feedback}
+          exportTab="ai_feedback"
         />
         <RecordsTable
-          title="Recent Bookings"
+          title="Meetings Captured From AI Outcomes"
           records={bookings}
           columns={SHEET_COLUMNS.Bookings}
           exportTab="bookings"

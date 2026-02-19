@@ -19,9 +19,9 @@ export default function AdminProtectedLayout({
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link href="/" className="text-sm font-semibold text-sky">
-            Back to home
+            Ops home
           </Link>
-          <h1 className="mt-2 text-3xl font-bold text-ink">Admin Dashboard</h1>
+          <h1 className="mt-2 text-3xl font-bold text-ink">EVI Operations Console</h1>
         </div>
         <AdminLogoutButton />
       </header>

@@ -1,105 +1,82 @@
 # Luna Office Assistant
 
-Privacy-first web app for a South African financial adviser (Ernest).  
-Built for office administration only: booking meetings, capturing leads, and taking callback messages.
+Admin-only operations console for Ernest.
 
-## What This App Does
-- Public booking flow with privacy-safe Google Calendar availability checks (`freeBusy` only).
-- Public lead form stored in Google Sheets (`Leads` tab).
-- Public message form stored in Google Sheets (`Messages` tab) with urgent flagging.
-- Admin-only dashboard for recent leads/messages/bookings (from Sheets) and CSV export.
-- Admin-only Hume EVI voice assistant panel inside dashboard (`/admin`).
-- Email notifications via SMTP to requester and/or Ernest.
+This app is where you:
+- Dispatch instructions to your EVI outbound calling workflow.
+- Track instruction status and AI feedback.
+- See meetings/bookings after AI completes calls.
 
-## Hard Privacy Rules Enforced
-- No policy/account operations are performed.
-- No policy lookup, balance lookup, withdrawal processing, switch requests, or status retrieval.
-- Calendar integration never reads event titles/descriptions/attendees for availability.
-- Only free/busy slots are used for schedule checks.
-- Minimal data storage only.
-- ID-like number redaction is applied before saving free text and callback context fields.
-- POPIA-style consent is required and consent timestamp is stored.
+This app is **not** a public booking/lead/message site anymore.
 
-## Stack
-- Next.js 14 (App Router) + TypeScript
-- Tailwind CSS
-- Google APIs (`googleapis`) for Calendar + Sheets
-- Hume EVI Web SDK (`@humeai/voice-react`) + secure token generation (`hume`)
-- Nodemailer SMTP for email
-- Zod validation
+## Product Model
 
-## Project Structure
-- `app/` pages + API routes
-- `components/` form and admin UI
-- `lib/` Google integrations, auth, privacy, validation, rate limit, CSV
-- `docs/usage-guide.md` quick usage/run-through
+1. Ernest enters instruction in `/admin`.
+2. External AI caller workflow (Hume EVI + telephony layer) pulls queued instructions.
+3. AI calls the client and attempts booking.
+4. AI posts feedback and booking outcome back to this app.
+5. Dashboard shows queue status, feedback feed, and booking outcomes.
 
-## Local Setup
-1. Ensure Node.js 18+ is installed.
-2. Copy `.env.example` to `.env.local`.
-3. Fill all environment variables.
-4. Install dependencies:
-   ```bash
-   npm install
-   ```
-5. Run dev server:
-   ```bash
-   npm run dev
-   ```
-6. Open `http://localhost:3000`.
+## Current Scope
 
-## Google Cloud Setup (Service Account)
-1. Create a Google Cloud project.
-2. Enable:
-   - Google Calendar API
-   - Google Sheets API
-3. Create a Service Account.
-4. Create a JSON key for the service account.
-5. Set:
-   - `GOOGLE_SERVICE_ACCOUNT_EMAIL` from `client_email`
-   - `GOOGLE_PRIVATE_KEY` from `private_key` (keep `\n` escaped in env)
+Implemented:
+- Admin auth and protected dashboard.
+- Instruction composer (admin UI).
+- Hume voice assistant panel in admin.
+- API for AI worker to fetch queued instructions.
+- API for AI worker to post status feedback.
+- Booking outcomes table driven by AI feedback payload.
+- CSV export for instructions/feedback/bookings.
 
-### Calendar Access
-1. Use or create the office calendar Ernest wants this app to manage.
-2. Share the calendar with the service account email.
-3. Permission required: **Make changes to events**.
-4. Put the calendar ID into `GOOGLE_CALENDAR_ID`.
+Not implemented in this repository:
+- Direct outbound phone dialing provider integration (Twilio/SIP/etc).
+- Autonomous background worker loop.
 
-### Sheets Access
-1. Create one Google Spreadsheet.
-2. Share the spreadsheet with the service account email (Editor).
-3. Put spreadsheet ID in `GOOGLE_SHEETS_SPREADSHEET_ID`.
-4. Create tabs exactly:
-   - `Leads`
-   - `Messages`
-   - `Bookings`
-5. Add header row exactly as below.
+## Key Routes
 
-`Leads` columns:
+UI:
+- `/admin/login`
+- `/admin`
+
+Admin API:
+- `POST /api/admin/instructions`
+- `GET /api/admin/export?tab=instructions|ai_feedback|bookings`
+
+AI Integration API:
+- `GET /api/ai/instructions` (header `x-ai-ingest-token`)
+- `POST /api/ai/feedback` (header `x-ai-ingest-token`)
+
+Hume:
+- `POST /api/hume/access-token` (admin session required)
+
+## Google Sheets Tabs
+
+Create these tabs in your spreadsheet:
+
+### `Instructions`
 - `createdAt`
-- `name`
-- `phone`
-- `email`
-- `topic`
-- `preferredCallbackTime`
-- `consent`
-- `consentAt`
+- `instructionId`
+- `clientName`
+- `clientPhone`
+- `preferredCallTime`
+- `instructionText`
+- `priority`
+- `status`
+- `createdBy`
 - `source`
-- `notes`
 
-`Messages` columns:
+### `AI_Feedback`
 - `createdAt`
-- `name`
-- `phone`
-- `email`
-- `reason`
-- `urgency`
-- `preferredCallbackTime`
-- `consent`
-- `consentAt`
-- `flaggedUrgent`
+- `instructionId`
+- `status`
+- `summary`
+- `nextAction`
+- `scheduledStartDateTime`
+- `scheduledEndDateTime`
+- `bookingEventId`
+- `rawPayload`
 
-`Bookings` columns:
+### `Bookings`
 - `createdAt`
 - `name`
 - `phone`
@@ -111,82 +88,95 @@ Built for office administration only: booking meetings, capturing leads, and tak
 - `consent`
 - `consentAt`
 
-## SMTP Setup
-Set:
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_USER`
-- `SMTP_PASS`
-- `SMTP_FROM`
+## Environment Variables
 
-Set Ernest target inbox:
-- `ERNEST_EMAIL`
+Use `.env.example` as template.
 
-## Admin Access
-- Login page: `/admin/login`
-- Username: `ADMIN_USERNAME` (default `ernest`)
-- Password: `ADMIN_PASSWORD`
-- Session signing key: `ADMIN_SESSION_SECRET`
+Required core:
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `ADMIN_SESSION_SECRET`
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_PRIVATE_KEY`
+- `GOOGLE_SHEETS_SPREADSHEET_ID`
 
-## Hume EVI Setup (Admin Assistant)
-1. In Hume, create your EVI configuration with strict instructions:
-   - This assistant records/schedules only.
-   - It must refuse policy/account operations.
-2. Copy your EVI `configId`.
-3. Set env vars:
-   - `HUME_API_KEY`
-   - `HUME_SECRET_KEY`
-   - `HUME_CONFIG_ID`
-   - Optional: `HUME_CONFIG_VERSION`, `HUME_API_HOST`
-4. Open `/admin` and use **Hume AI Assistant (Admin)** to start a voice session.
+Required AI workflow auth:
+- `AI_INGEST_TOKEN` (shared secret for AI integration endpoints)
 
-How it works:
-- Client requests `/api/hume/access-token` (admin session required).
-- Server creates short-lived Hume access token.
-- Browser connects to EVI with your `configId`.
+Required Hume:
+- `HUME_API_KEY`
+- `HUME_SECRET_KEY`
+- `HUME_CONFIG_ID`
 
-## Vercel Deployment
-1. Push repository to GitHub/GitLab/Bitbucket.
+Optional:
+- `HUME_CONFIG_VERSION`
+- `HUME_API_HOST` (default `api.hume.ai`)
+
+Other integrations already present:
+- Calendar + SMTP envs remain supported if you still use them.
+
+## AI Worker Contract
+
+### Fetch instruction queue
+
+`GET /api/ai/instructions`
+
+Headers:
+- `x-ai-ingest-token: <AI_INGEST_TOKEN>`
+
+Query options:
+- `limit` (default 50, max 200)
+- `includeClosed=true|false`
+
+### Post feedback/outcome
+
+`POST /api/ai/feedback`
+
+Headers:
+- `x-ai-ingest-token: <AI_INGEST_TOKEN>`
+- `content-type: application/json`
+
+Body example:
+
+```json
+{
+  "instructionId": "8fd62713-1d8a-4f4d-9a67-8bde4e7af419",
+  "status": "completed",
+  "summary": "Client confirmed review meeting for Monday 10:00.",
+  "nextAction": "Send reminder 24h before meeting.",
+  "scheduledStartDateTime": "2026-02-23T10:00:00+02:00",
+  "scheduledEndDateTime": "2026-02-23T10:30:00+02:00",
+  "bookingEventId": "hume-call-evt-12345",
+  "clientName": "Mr. Gouws",
+  "clientPhone": "011 255 2323",
+  "clientEmail": "",
+  "meetingType": "Review Meeting (30m)"
+}
+```
+
+If `status=completed` and both scheduled datetimes are provided, a row is appended to `Bookings`.
+
+## Local Development
+
+```bash
+npm install
+npm run dev
+```
+
+## Deploy (Vercel)
+
+1. Push repo to GitHub.
 2. Import project in Vercel.
-3. Framework preset: Next.js.
-4. Add all environment variables from `.env.example`.
-5. Deploy.
-6. After deploy, test:
-   - `/book`
-   - `/become-client`
-   - `/leave-message`
-   - `/admin/login`
-
-## Anti-Spam + Abuse Controls
-- Hidden honeypot field (`website`) on public forms.
-- Basic per-IP in-memory rate limiting on API endpoints.
-- Validation on all incoming payloads.
-
-## Booking Behavior
-- Timezone: `Africa/Johannesburg`.
-- Meeting types:
-  - Intro Call (15m)
-  - Review Meeting (30m)
-  - Full Consultation (60m)
-- Event summary format:
-  - `Meeting - <FirstName> - <Phone>`
-- Confirmation email sent to requester.
-- Notification email sent to Ernest.
+3. Add all required env vars.
+4. Deploy.
 
 ## Verification Checklist
-- [ ] Public forms submit with valid data.
-- [ ] Invalid payloads are rejected.
-- [ ] Honeypot submissions are blocked.
-- [ ] Rate limit returns `429` after threshold.
-- [ ] Calendar availability uses free/busy only.
-- [ ] Booking creates calendar event + row in `Bookings`.
-- [ ] Leads append into `Leads`.
-- [ ] Messages append into `Messages`.
-- [ ] Urgent message triggers `URGENT:` subject.
-- [ ] Admin dashboard requires login.
-- [ ] Hume assistant connects from `/admin` with your configured `HUME_CONFIG_ID`.
-- [ ] CSV export works for leads/messages/bookings.
 
-## Notes
-- Current rate limiting is in-memory (sufficient for v1, basic bot resistance).
-- For higher scale, replace with Upstash Redis or another shared store.
+- [ ] `/` redirects to `/admin/login`
+- [ ] Admin login works
+- [ ] Instruction submit creates row in `Instructions`
+- [ ] `GET /api/ai/instructions` returns queued work with token
+- [ ] `POST /api/ai/feedback` writes row in `AI_Feedback`
+- [ ] Completed feedback with scheduled times creates row in `Bookings`
+- [ ] Dashboard shows queue + feedback + booking outcomes
+- [ ] Hume assistant panel connects with configured `HUME_CONFIG_ID`

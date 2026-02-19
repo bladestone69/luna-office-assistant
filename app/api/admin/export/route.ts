@@ -6,8 +6,8 @@ import { toCsv } from "@/lib/csv";
 import { getAllSheetRecords } from "@/lib/sheets";
 
 const exportMap = {
-  leads: SHEET_TABS.leads,
-  messages: SHEET_TABS.messages,
+  instructions: SHEET_TABS.instructions,
+  ai_feedback: SHEET_TABS.aiFeedback,
   bookings: SHEET_TABS.bookings
 } as const;
 

@@ -11,7 +11,7 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "Luna Office Assistant",
   description:
-    "Admin-focused office assistant for bookings, lead capture, and message taking with strict privacy controls."
+    "Admin operations console for EVI-driven outbound calls, booking outcomes, and feedback tracking."
 };
 
 export default function RootLayout({
