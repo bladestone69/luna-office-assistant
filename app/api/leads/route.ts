@@ -3,10 +3,14 @@ import { fail, enforceRateLimit, isHoneypotTriggered } from "@/lib/api";
 import { SHEET_TABS } from "@/lib/constants";
 import { getErnestEmail, sendEmail } from "@/lib/email";
 import { redactIdLikeNumbers, sanitizeFreeText } from "@/lib/privacy";
-import { appendSheetRow } from "@/lib/sheets";
+import { appendSheetRow, isSheetsConfigured } from "@/lib/sheets";
 import { leadSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
+  if (!isSheetsConfigured()) {
+    return fail("Google Sheets integration is not configured.", 503);
+  }
+
   const limited = enforceRateLimit(request, "leads");
   if (limited) return limited;
 

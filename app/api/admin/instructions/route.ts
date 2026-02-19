@@ -4,12 +4,16 @@ import { isAdminApiRequest } from "@/lib/auth";
 import { fail, enforceRateLimit } from "@/lib/api";
 import { SHEET_TABS } from "@/lib/constants";
 import { redactIdLikeNumbers, sanitizeFreeText } from "@/lib/privacy";
-import { appendSheetRow } from "@/lib/sheets";
+import { appendSheetRow, isSheetsConfigured } from "@/lib/sheets";
 import { instructionCreateSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   if (!isAdminApiRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isSheetsConfigured()) {
+    return fail("Google Sheets integration is not configured.", 503);
   }
 
   const limited = enforceRateLimit(request, "admin-instructions");

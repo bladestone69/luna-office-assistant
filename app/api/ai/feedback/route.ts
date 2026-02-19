@@ -3,7 +3,7 @@ import { fail, enforceRateLimit } from "@/lib/api";
 import { SHEET_TABS } from "@/lib/constants";
 import { requiredEnv } from "@/lib/env";
 import { redactIdLikeNumbers, sanitizeFreeText } from "@/lib/privacy";
-import { appendSheetRow } from "@/lib/sheets";
+import { appendSheetRow, isSheetsConfigured } from "@/lib/sheets";
 import { aiFeedbackSchema } from "@/lib/validation";
 
 function normalize(value: string) {
@@ -14,6 +14,10 @@ export async function POST(request: NextRequest) {
   const token = request.headers.get("x-ai-ingest-token");
   if (!token || token !== requiredEnv("AI_INGEST_TOKEN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isSheetsConfigured()) {
+    return fail("Google Sheets integration is not configured.", 503);
   }
 
   const limited = enforceRateLimit(request, "ai-feedback");

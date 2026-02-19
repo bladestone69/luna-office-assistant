@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { enforceRateLimit } from "@/lib/api";
 import { INSTRUCTION_STATUSES, SHEET_TABS } from "@/lib/constants";
 import { requiredEnv } from "@/lib/env";
-import { getRecentSheetRecords } from "@/lib/sheets";
+import { getRecentSheetRecords, isSheetsConfigured } from "@/lib/sheets";
 
 const terminalStatuses = new Set<(typeof INSTRUCTION_STATUSES)[number]>([
   "completed",
@@ -15,6 +15,13 @@ export async function GET(request: NextRequest) {
   const token = request.headers.get("x-ai-ingest-token");
   if (!token || token !== requiredEnv("AI_INGEST_TOKEN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isSheetsConfigured()) {
+    return NextResponse.json(
+      { error: "Google Sheets integration is not configured." },
+      { status: 503 }
+    );
   }
 
   const limited = enforceRateLimit(request, "ai-instructions");

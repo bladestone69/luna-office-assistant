@@ -1,7 +1,7 @@
 import { InstructionComposer } from "@/components/admin/InstructionComposer";
 import { AdminHumeAssistant } from "@/components/hume/AdminHumeAssistant";
 import { SHEET_COLUMNS, SHEET_TABS } from "@/lib/constants";
-import { getRecentSheetRecords } from "@/lib/sheets";
+import { getRecentSheetRecords, isSheetsConfigured } from "@/lib/sheets";
 
 export const dynamic = "force-dynamic";
 
@@ -62,11 +62,14 @@ function RecordsTable({
 
 export default async function AdminDashboardPage() {
   try {
-    const [instructions, aiFeedback, bookings] = await Promise.all([
-      getRecentSheetRecords(SHEET_TABS.instructions, 40),
-      getRecentSheetRecords(SHEET_TABS.aiFeedback, 80),
-      getRecentSheetRecords(SHEET_TABS.bookings, 20)
-    ]);
+    const sheetsReady = isSheetsConfigured();
+    const [instructions, aiFeedback, bookings] = sheetsReady
+      ? await Promise.all([
+          getRecentSheetRecords(SHEET_TABS.instructions, 40),
+          getRecentSheetRecords(SHEET_TABS.aiFeedback, 80),
+          getRecentSheetRecords(SHEET_TABS.bookings, 20)
+        ])
+      : [[], [], []];
 
     const latestFeedbackByInstruction = new Map<string, Record<string, string>>();
     aiFeedback.forEach((record) => {
@@ -94,6 +97,13 @@ export default async function AdminDashboardPage() {
 
     return (
       <div className="space-y-6">
+        {!sheetsReady ? (
+          <section className="panel border border-amber-300/60 bg-amber-50 p-4 text-sm text-amber-900">
+            Google Sheets is not configured. Set `GOOGLE_SERVICE_ACCOUNT_EMAIL`,
+            `GOOGLE_PRIVATE_KEY`, and `GOOGLE_SHEETS_SPREADSHEET_ID` to load and persist
+            dashboard data.
+          </section>
+        ) : null}
         <InstructionComposer />
         <AdminHumeAssistant />
         <RecordsTable

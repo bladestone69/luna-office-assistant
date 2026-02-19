@@ -6,6 +6,42 @@ import type { SheetTab } from "@/lib/constants";
 
 type SheetsRecord = Record<string, string>;
 
+const REQUIRED_SHEETS_ENV = [
+  "GOOGLE_SERVICE_ACCOUNT_EMAIL",
+  "GOOGLE_PRIVATE_KEY",
+  "GOOGLE_SHEETS_SPREADSHEET_ID"
+] as const;
+
+const PLACEHOLDER_PATTERNS: Record<(typeof REQUIRED_SHEETS_ENV)[number], RegExp[]> = {
+  GOOGLE_SERVICE_ACCOUNT_EMAIL: [/service-account-name@project-id/i],
+  GOOGLE_PRIVATE_KEY: [/YOUR_KEY_HERE/i],
+  GOOGLE_SHEETS_SPREADSHEET_ID: [/^your-google-sheet-id$/i]
+};
+
+let hasWarnedMissingSheetsEnv = false;
+
+export function isSheetsConfigured(): boolean {
+  return REQUIRED_SHEETS_ENV.every((name) => {
+    const value = process.env[name];
+    if (typeof value !== "string") return false;
+
+    const normalized = value.trim();
+    if (!normalized) return false;
+
+    const patterns = PLACEHOLDER_PATTERNS[name];
+    return !patterns.some((pattern) => pattern.test(normalized));
+  });
+}
+
+function warnMissingSheetsConfig(context: string) {
+  if (hasWarnedMissingSheetsEnv) return;
+  hasWarnedMissingSheetsEnv = true;
+  console.warn(
+    `[sheets] ${context}: Google Sheets env is not configured. ` +
+      `Set GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY, and GOOGLE_SHEETS_SPREADSHEET_ID.`
+  );
+}
+
 function getSheetsClient() {
   const auth = getGoogleJwt(["https://www.googleapis.com/auth/spreadsheets"]);
   return google.sheets({ version: "v4", auth });
@@ -16,6 +52,11 @@ function spreadsheetId() {
 }
 
 export async function appendSheetRow(tab: SheetTab, values: string[]) {
+  if (!isSheetsConfigured()) {
+    warnMissingSheetsConfig(`append ${tab}`);
+    return;
+  }
+
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId: spreadsheetId(),
@@ -28,6 +69,11 @@ export async function appendSheetRow(tab: SheetTab, values: string[]) {
 }
 
 export async function getSheetRows(tab: SheetTab): Promise<string[][]> {
+  if (!isSheetsConfigured()) {
+    warnMissingSheetsConfig(`read ${tab}`);
+    return [];
+  }
+
   const sheets = getSheetsClient();
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: spreadsheetId(),

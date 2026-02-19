@@ -12,10 +12,14 @@ import {
   sendEmail
 } from "@/lib/email";
 import { getFirstName, redactIdLikeNumbers } from "@/lib/privacy";
-import { appendSheetRow } from "@/lib/sheets";
+import { appendSheetRow, isSheetsConfigured } from "@/lib/sheets";
 import { bookingSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
+  if (!isSheetsConfigured()) {
+    return fail("Google Sheets integration is not configured.", 503);
+  }
+
   const limited = enforceRateLimit(request, "bookings");
   if (limited) return limited;
 

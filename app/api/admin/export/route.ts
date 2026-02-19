@@ -3,7 +3,7 @@ import { isAdminApiRequest } from "@/lib/auth";
 import { fail } from "@/lib/api";
 import { SHEET_TABS } from "@/lib/constants";
 import { toCsv } from "@/lib/csv";
-import { getAllSheetRecords } from "@/lib/sheets";
+import { getAllSheetRecords, isSheetsConfigured } from "@/lib/sheets";
 
 const exportMap = {
   instructions: SHEET_TABS.instructions,
@@ -14,6 +14,10 @@ const exportMap = {
 export async function GET(request: NextRequest) {
   if (!isAdminApiRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isSheetsConfigured()) {
+    return fail("Google Sheets integration is not configured.", 503);
   }
 
   const tab = request.nextUrl.searchParams.get("tab")?.toLowerCase() as
