@@ -6,6 +6,9 @@ import { requiredEnv } from "@/lib/env";
 export const ADMIN_COOKIE = "luna_admin_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
 
+// Temporary bypass: admin area and admin APIs do not require login.
+const ADMIN_AUTH_DISABLED = true;
+
 function sign(payload: string): string {
   return createHmac("sha256", requiredEnv("ADMIN_SESSION_SECRET"))
     .update(payload)
@@ -20,6 +23,7 @@ function secureCompare(a: string, b: string) {
 }
 
 export function verifyAdminCredentials(username: string, password: string) {
+  if (ADMIN_AUTH_DISABLED) return true;
   const expectedUser = process.env.ADMIN_USERNAME || "ernest";
   const expectedPass = requiredEnv("ADMIN_PASSWORD");
   return secureCompare(username, expectedUser) && secureCompare(password, expectedPass);
@@ -33,6 +37,7 @@ export function createAdminSession(username: string): string {
 }
 
 export function verifyAdminSession(token: string | undefined): boolean {
+  if (ADMIN_AUTH_DISABLED) return true;
   if (!token) return false;
 
   try {
@@ -53,6 +58,7 @@ export function verifyAdminSession(token: string | undefined): boolean {
 }
 
 export function isAdminApiRequest(request: NextRequest) {
+  if (ADMIN_AUTH_DISABLED) return true;
   const token = request.cookies.get(ADMIN_COOKIE)?.value;
   return verifyAdminSession(token);
 }
