@@ -55,7 +55,16 @@ Dashboard includes:
 - Recent Leads
 - Recent Messages
 - Recent Bookings
+- Hume AI Assistant (admin voice panel)
 - CSV export buttons for each
+
+## Hume Assistant Flow
+1. Ensure these env vars are set: `HUME_API_KEY`, `HUME_SECRET_KEY`, `HUME_CONFIG_ID`.
+2. Open `/admin`.
+3. In **Hume AI Assistant (Admin)** click **Start voice session**.
+4. Allow microphone permissions when prompted.
+5. Use voice or text input.
+6. Click **End voice session** when done.
 
 ## Privacy Guardrails to Verify
 - No policy/account processing.

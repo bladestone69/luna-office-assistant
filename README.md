@@ -8,6 +8,7 @@ Built for office administration only: booking meetings, capturing leads, and tak
 - Public lead form stored in Google Sheets (`Leads` tab).
 - Public message form stored in Google Sheets (`Messages` tab) with urgent flagging.
 - Admin-only dashboard for recent leads/messages/bookings (from Sheets) and CSV export.
+- Admin-only Hume EVI voice assistant panel inside dashboard (`/admin`).
 - Email notifications via SMTP to requester and/or Ernest.
 
 ## Hard Privacy Rules Enforced
@@ -23,6 +24,7 @@ Built for office administration only: booking meetings, capturing leads, and tak
 - Next.js 14 (App Router) + TypeScript
 - Tailwind CSS
 - Google APIs (`googleapis`) for Calendar + Sheets
+- Hume EVI Web SDK (`@humeai/voice-react`) + secure token generation (`hume`)
 - Nodemailer SMTP for email
 - Zod validation
 
@@ -126,6 +128,23 @@ Set Ernest target inbox:
 - Password: `ADMIN_PASSWORD`
 - Session signing key: `ADMIN_SESSION_SECRET`
 
+## Hume EVI Setup (Admin Assistant)
+1. In Hume, create your EVI configuration with strict instructions:
+   - This assistant records/schedules only.
+   - It must refuse policy/account operations.
+2. Copy your EVI `configId`.
+3. Set env vars:
+   - `HUME_API_KEY`
+   - `HUME_SECRET_KEY`
+   - `HUME_CONFIG_ID`
+   - Optional: `HUME_CONFIG_VERSION`, `HUME_API_HOST`
+4. Open `/admin` and use **Hume AI Assistant (Admin)** to start a voice session.
+
+How it works:
+- Client requests `/api/hume/access-token` (admin session required).
+- Server creates short-lived Hume access token.
+- Browser connects to EVI with your `configId`.
+
 ## Vercel Deployment
 1. Push repository to GitHub/GitLab/Bitbucket.
 2. Import project in Vercel.
@@ -165,6 +184,7 @@ Set Ernest target inbox:
 - [ ] Messages append into `Messages`.
 - [ ] Urgent message triggers `URGENT:` subject.
 - [ ] Admin dashboard requires login.
+- [ ] Hume assistant connects from `/admin` with your configured `HUME_CONFIG_ID`.
 - [ ] CSV export works for leads/messages/bookings.
 
 ## Notes

@@ -1,3 +1,4 @@
+import { AdminHumeAssistant } from "@/components/hume/AdminHumeAssistant";
 import { SHEET_COLUMNS, SHEET_TABS } from "@/lib/constants";
 import { getRecentSheetRecords } from "@/lib/sheets";
 
@@ -68,6 +69,7 @@ export default async function AdminDashboardPage() {
 
     return (
       <div className="space-y-6">
+        <AdminHumeAssistant />
         <RecordsTable
           title="Recent Leads"
           records={leads}
