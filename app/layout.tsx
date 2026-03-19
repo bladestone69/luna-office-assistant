@@ -1,27 +1,26 @@
 import type { Metadata } from "next";
-import { Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
+const inter = Inter({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-space-grotesk"
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
-  title: "Luna Office Assistant",
-  description:
-    "Admin operations console for EVI-driven outbound calls, booking outcomes, and feedback tracking."
+  title: "Luna — AI Receptionist",
+  description: "AI-powered receptionist dashboard for Hume EVI and Twilio.",
 };
 
 export default function RootLayout({
-  children
-}: Readonly<{
+  children,
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en-ZA">
-      <body className={`${spaceGrotesk.variable} font-sans antialiased`}>
+    <html lang="en">
+      <body className={`${inter.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>

@@ -5,22 +5,29 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "var(--ink)",
-        sky: "var(--sky)",
-        mint: "var(--mint)",
-        sand: "var(--sand)",
-        paper: "var(--paper)",
-        alarm: "var(--alarm)"
+        navy: {
+          950: "#070E1A",
+          900: "#0D1B2A",
+          800: "#14253A",
+          700: "#1E3A5F",
+          600: "#2D5A8A",
+        },
+        blue: {
+          accent: "#4A90D9",
+          light: "#7BB3E8",
+          muted: "#5B8DB8",
+        },
+        cream: {
+          100: "#F0F4F8",
+          200: "#D1DCE8",
+          300: "#8FA4BC",
+        },
       },
-      boxShadow: {
-        card: "0 20px 40px -24px rgba(13, 41, 58, 0.35)"
+      fontFamily: {
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
-      borderRadius: {
-        xl2: "1.25rem"
-      }
-    }
+    },
   },
-  plugins: []
+  plugins: [],
 };
-
 export default config;

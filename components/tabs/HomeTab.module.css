@@ -1,0 +1,236 @@
+.root {
+  padding: 0 16px 8px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 0 20px;
+}
+
+.greeting {
+  font-size: 14px;
+  color: #5B8DB8;
+  margin: 0 0 2px;
+}
+
+.name {
+  font-size: 28px;
+  font-weight: 700;
+  color: #F0F4F8;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.dateBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(74, 144, 217, 0.1);
+  border: 1px solid rgba(74, 144, 217, 0.2);
+  border-radius: 100px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4A90D9;
+  margin-top: 4px;
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.statCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(74, 144, 217, 0.1);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: #F0F4F8;
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 11px;
+  color: #5B8DB8;
+  font-weight: 500;
+}
+
+.section {
+  margin-bottom: 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 0 2px;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #F0F4F8;
+  margin: 0;
+}
+
+.seeAll {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4A90D9;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.callRow {
+  margin-bottom: 6px;
+}
+
+.callInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.callName {
+  font-size: 14px;
+  font-weight: 600;
+  color: #F0F4F8;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.callNumber {
+  font-size: 12px;
+  color: #5B8DB8;
+  margin: 2px 0 0;
+}
+
+.callRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.callTime {
+  font-size: 12px;
+  color: #5B8DB8;
+  font-weight: 500;
+}
+
+/* AI card */
+.aiCard {
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.12) 0%, rgba(74, 144, 217, 0.05) 100%);
+  border: 1px solid rgba(74, 144, 217, 0.2);
+  border-radius: 20px;
+  padding: 18px;
+  margin-bottom: 24px;
+}
+
+.aiCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.aiIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(74, 144, 217, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4A90D9;
+  flex-shrink: 0;
+}
+
+.aiTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #F0F4F8;
+  margin: 0;
+}
+
+.aiSubtitle {
+  font-size: 12px;
+  color: #5B8DB8;
+  margin: 2px 0 0;
+}
+
+.aiSummary {
+  font-size: 13px;
+  color: #D1DCE8;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.aiSummary strong {
+  color: #F0F4F8;
+  font-weight: 700;
+}
+
+.aiAction {
+  background: none;
+  border: 1px solid rgba(74, 144, 217, 0.3);
+  border-radius: 10px;
+  color: #4A90D9;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.aiAction:hover {
+  background: rgba(74, 144, 217, 0.08);
+}
+
+/* Quick actions */
+.actionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.actionBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(74, 144, 217, 0.1);
+  border-radius: 14px;
+  padding: 16px 8px 12px;
+  color: #D1DCE8;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.actionBtn:hover {
+  background: rgba(74, 144, 217, 0.08);
+}
+
+.actionBtn svg {
+  color: #4A90D9;
+}

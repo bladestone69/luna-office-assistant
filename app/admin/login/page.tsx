@@ -20,7 +20,7 @@ export default function AdminLoginPage() {
       const response = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password }),
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -38,18 +38,23 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-8">
-      <Link href="/" className="mb-5 text-sm font-semibold text-sky">
-        Operations console
-      </Link>
-      <form className="panel space-y-4 p-6" onSubmit={onSubmit}>
-        <h1 className="text-2xl font-bold text-ink">Admin Login</h1>
-        <p className="text-sm text-ink/75">
-          Secure access to instruction queue, AI feedback, and booking outcomes.
-        </p>
+    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-8 bg-[#0C0C0E]">
+      <div className="mb-6 text-center">
+        <span className="font-serif text-2xl font-bold text-[#C9A84C]">Luna</span>
+      </div>
+
+      <form className="panel space-y-4 p-6 gold-glow" onSubmit={onSubmit}>
+        <div className="text-center">
+          <h1 className="font-serif text-2xl font-bold text-[#F5F0E8]">Admin Login</h1>
+          <p className="mt-2 text-sm text-[#8A8A8A]">
+            Secure access to instruction queue, AI feedback, and booking outcomes.
+          </p>
+        </div>
 
         <label className="block">
-          <span className="mb-1 block text-sm font-semibold">Username</span>
+          <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">
+            Username
+          </span>
           <input
             className="input"
             value={username}
@@ -59,7 +64,9 @@ export default function AdminLoginPage() {
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-sm font-semibold">Password</span>
+          <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">
+            Password
+          </span>
           <input
             className="input"
             type="password"
@@ -69,12 +76,23 @@ export default function AdminLoginPage() {
           />
         </label>
 
-        {error ? <p className="text-sm font-semibold text-alarm">{error}</p> : null}
+        {error ? (
+          <p className="rounded-lg border border-red-800/40 bg-red-900/20 px-3 py-2 text-sm font-semibold text-red-400">
+            {error}
+          </p>
+        ) : null}
 
         <button className="btn w-full" type="submit" disabled={submitting}>
           {submitting ? "Signing in..." : "Sign in"}
         </button>
       </form>
+
+      <Link
+        href="/"
+        className="mt-6 text-center text-sm text-[#8A8A8A] transition-colors hover:text-[#C9A84C]"
+      >
+        ← Back to home
+      </Link>
     </main>
   );
 }

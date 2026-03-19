@@ -15,7 +15,12 @@ export function AdminLogoutButton() {
   }
 
   return (
-    <button type="button" className="btn btn-muted" onClick={logout} disabled={busy}>
+    <button
+      type="button"
+      className="btn-muted rounded-full text-sm"
+      onClick={logout}
+      disabled={busy}
+    >
       {busy ? "Signing out..." : "Sign out"}
     </button>
   );

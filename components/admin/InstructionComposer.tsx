@@ -84,13 +84,15 @@ export function InstructionComposer() {
     <section className="panel p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold text-ink">Dispatch Calls to EVI</h2>
-          <p className="mt-2 max-w-2xl text-sm text-ink/75">
+          <h2 className="font-serif text-2xl font-semibold text-[#F5F0E8]">
+            Dispatch Calls to EVI
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-[#8A8A8A]">
             Paste one or many numbers. EVI will dial each number and run the pitch prompt
             you dispatch here.
           </p>
         </div>
-        <span className="rounded-full bg-ink/5 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-ink/70">
+        <span className="rounded-full border border-[#C9A84C]/30 bg-[#C9A84C]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#C9A84C]">
           {parsedPhoneNumbers.length} queued number
           {parsedPhoneNumbers.length === 1 ? "" : "s"}
         </span>
@@ -99,7 +101,9 @@ export function InstructionComposer() {
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div className="grid gap-4 lg:grid-cols-2">
           <label className="block">
-            <span className="mb-1 block text-sm font-semibold">Campaign label (optional)</span>
+            <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">
+              Campaign label (optional)
+            </span>
             <input
               className="input"
               placeholder="Example: Retirement review outreach"
@@ -109,7 +113,9 @@ export function InstructionComposer() {
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm font-semibold">Preferred call window</span>
+            <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">
+              Preferred call window
+            </span>
             <input
               className="input"
               placeholder="Example: Weekdays 09:00-13:00"
@@ -121,7 +127,9 @@ export function InstructionComposer() {
 
         <div className="grid gap-4 lg:grid-cols-5">
           <label className="block lg:col-span-2">
-            <span className="mb-1 block text-sm font-semibold">Phone numbers</span>
+            <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">
+              Phone numbers
+            </span>
             <textarea
               className="input min-h-[200px]"
               placeholder={["+27821234567", "082 555 0182", "011-255-2323"].join("\n")}
@@ -129,14 +137,16 @@ export function InstructionComposer() {
               onChange={(event) => setPhoneBlock(event.target.value)}
               required
             />
-            <span className="mt-1 block text-xs text-ink/65">
+            <span className="mt-1 block text-xs text-[#8A8A8A]">
               One number per line, or separate with commas.
             </span>
           </label>
 
           <div className="space-y-4 lg:col-span-3">
             <label className="block">
-              <span className="mb-1 block text-sm font-semibold">Pitch prompt for EVI</span>
+              <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">
+                Pitch prompt for EVI
+              </span>
               <textarea
                 className="input min-h-[150px]"
                 placeholder="Call the lead, introduce our review service, qualify interest, then ask to schedule a 30-minute review."
@@ -147,7 +157,9 @@ export function InstructionComposer() {
             </label>
 
             <label className="block max-w-xs">
-              <span className="mb-1 block text-sm font-semibold">Priority</span>
+              <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">
+                Priority
+              </span>
               <select
                 className="input"
                 value={priority}
@@ -165,8 +177,16 @@ export function InstructionComposer() {
           </div>
         </div>
 
-        {error ? <p className="text-sm font-semibold text-alarm">{error}</p> : null}
-        {success ? <p className="text-sm font-semibold text-mint">{success}</p> : null}
+        {error ? (
+          <p className="rounded-lg border border-red-800/40 bg-red-900/20 px-3 py-2 text-sm font-semibold text-red-400">
+            {error}
+          </p>
+        ) : null}
+        {success ? (
+          <p className="rounded-lg border border-green-800/40 bg-green-900/20 px-3 py-2 text-sm font-semibold text-green-400">
+            {success}
+          </p>
+        ) : null}
 
         <button className="btn" type="submit" disabled={submitting}>
           {submitting ? "Dispatching..." : "Dispatch To EVI"}

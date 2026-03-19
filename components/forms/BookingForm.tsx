@@ -110,8 +110,8 @@ export function BookingForm() {
 
   return (
     <form className="panel mx-auto w-full max-w-2xl space-y-4 p-6" onSubmit={onSubmit}>
-      <h1 className="text-2xl font-bold text-ink">Book a Meeting</h1>
-      <p className="text-sm text-ink/75">
+      <h1 className="text-2xl font-bold text-[#F5F0E8]">Book a Meeting</h1>
+      <p className="text-sm text-[#8A8A8A]">
         We only use calendar free/busy availability. No private event details are read.
       </p>
 
@@ -160,7 +160,7 @@ export function BookingForm() {
       <div>
         <p className="mb-2 text-sm font-semibold">Available times ({APP_TIMEZONE})</p>
         {!slots.length ? (
-          <p className="rounded-lg bg-sky/10 px-3 py-2 text-sm text-ink/75">
+          <p className="rounded-lg border border-[#C9A84C]/20 bg-[#C9A84C]/5 px-3 py-2 text-sm text-[#8A8A8A]">
             Select a date and click Find times.
           </p>
         ) : (
@@ -182,8 +182,8 @@ export function BookingForm() {
                   type="button"
                   className={`rounded-lg border px-3 py-2 text-sm ${
                     active
-                      ? "border-sky bg-sky/10 font-semibold text-ink"
-                      : "border-ink/20 bg-white"
+                      ? "border-[#C9A84C] bg-[#C9A84C]/10 font-semibold text-[#C9A84C]"
+                      : "border-[rgba(201,168,76,0.2)] bg-[rgba(255,255,255,0.04)] text-[#F5F0E8]"
                   }`}
                   onClick={() => setSelectedSlot(slot)}
                 >
@@ -253,8 +253,8 @@ export function BookingForm() {
         </span>
       </label>
 
-      {error ? <p className="text-sm font-semibold text-alarm">{error}</p> : null}
-      {success ? <p className="text-sm font-semibold text-mint">{success}</p> : null}
+      {error ? <p className="rounded-lg border border-red-800/40 bg-red-900/20 px-3 py-2 text-sm font-semibold text-red-400">{error}</p> : null}
+      {success ? <p className="rounded-lg border border-green-800/40 bg-green-900/20 px-3 py-2 text-sm font-semibold text-green-400">{success}</p> : null}
 
       <button type="submit" className="btn w-full" disabled={submitting}>
         {submitting ? "Submitting..." : "Confirm booking"}

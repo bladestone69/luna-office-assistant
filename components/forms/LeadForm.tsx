@@ -61,8 +61,8 @@ export function LeadForm() {
 
   return (
     <form className="panel mx-auto w-full max-w-2xl space-y-4 p-6" onSubmit={onSubmit}>
-      <h1 className="text-2xl font-bold text-ink">Become a Client</h1>
-      <p className="text-sm text-ink/75">
+      <h1 className="text-2xl font-bold text-[#F5F0E8]">Become a Client</h1>
+      <p className="text-sm text-[#8A8A8A]">
         Share your details and broad topic. We do not process policy changes or account
         requests on this form.
       </p>
@@ -163,8 +163,8 @@ export function LeadForm() {
         </span>
       </label>
 
-      {error ? <p className="text-sm font-semibold text-alarm">{error}</p> : null}
-      {success ? <p className="text-sm font-semibold text-mint">{success}</p> : null}
+      {error ? <p className="rounded-lg border border-red-800/40 bg-red-900/20 px-3 py-2 text-sm font-semibold text-red-400">{error}</p> : null}
+      {success ? <p className="rounded-lg border border-green-800/40 bg-green-900/20 px-3 py-2 text-sm font-semibold text-green-400">{success}</p> : null}
 
       <button type="submit" className="btn w-full" disabled={submitting}>
         {submitting ? "Submitting..." : "Submit lead"}
