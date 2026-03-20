@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "./MobileShell.module.css";
 
 // Tab icons as inline SVGs
@@ -38,7 +39,15 @@ function MenuIcon({ active }: { active: boolean }) {
   );
 }
 
-export type Tab = "home" | "calls" | "ai" | "menu";
+function ShieldIcon({ active }: { active: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
+export type Tab = "home" | "calls" | "ai" | "menu" | "admin";
 
 interface MobileShellProps {
   activeTab: Tab;
@@ -55,6 +64,7 @@ function getTime() {
 }
 
 export function MobileShell({ activeTab, onTabChange, children }: MobileShellProps) {
+  const router = useRouter();
   const [time, setTime] = useState(getTime());
 
   // Update time periodically
@@ -62,6 +72,10 @@ export function MobileShell({ activeTab, onTabChange, children }: MobileShellPro
     const interval = setInterval(() => setTime(getTime()), 1000);
     return () => clearInterval(interval);
   });
+
+  function handleAdminClick() {
+    router.push("/admin/login");
+  }
 
   return (
     <div className={styles.shell}>
@@ -111,6 +125,13 @@ export function MobileShell({ activeTab, onTabChange, children }: MobileShellPro
         >
           <MenuIcon active={activeTab === "menu"} />
           <span>Menu</span>
+        </button>
+        <button
+          className={`${styles.navItem} ${activeTab === "admin" ? styles.active : ""}`}
+          onClick={handleAdminClick}
+        >
+          <ShieldIcon active={activeTab === "admin"} />
+          <span>Admin</span>
         </button>
       </nav>
     </div>
