@@ -439,18 +439,18 @@ function OverviewTab({ client }: { client: Client }) {
       <div className={styles.infoCard}>
         <h3 className={styles.infoCardTitle}>Business Info</h3>
         <InfoRow label="Name" value={client.name} />
-        <InfoRow label="Industry" value={client.industry} />
-        <InfoRow label="Timezone" value={client.timezone} />
-        <InfoRow label="Plan" value={client.plan} />
-        <InfoRow label="Status" value={client.status} />
-        <InfoRow label="Member since" value={client.createdAt} />
+        <InfoRow label="Industry" value={client.industry ?? ""} />
+        <InfoRow label="Timezone" value={client.timezone ?? ""} />
+        <InfoRow label="Plan" value={client.plan ?? ""} />
+        <InfoRow label="Status" value={client.status ?? ""} />
+        <InfoRow label="Member since" value={client.createdAt ?? ""} />
       </div>
 
       <div className={styles.infoCard}>
         <h3 className={styles.infoCardTitle}>Contact</h3>
-        <InfoRow label="Name" value={client.contactName} />
-        <InfoRow label="Email" value={client.contactEmail} />
-        <InfoRow label="Phone" value={client.contactPhone} />
+        <InfoRow label="Name" value={client.contactName ?? ""} />
+        <InfoRow label="Email" value={client.contactEmail ?? ""} />
+        <InfoRow label="Phone" value={client.contactPhone ?? ""} />
       </div>
 
       <div className={styles.infoCard} style={{ gridColumn: "1 / -1" }}>
