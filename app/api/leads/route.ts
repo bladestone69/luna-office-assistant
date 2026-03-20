@@ -1,67 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fail, enforceRateLimit, isHoneypotTriggered } from "@/lib/api";
-import { SHEET_TABS } from "@/lib/constants";
-import { getErnestEmail, sendEmail } from "@/lib/email";
-import { redactIdLikeNumbers, sanitizeFreeText } from "@/lib/privacy";
-import { appendSheetRow, isSheetsConfigured } from "@/lib/sheets";
-import { leadSchema } from "@/lib/validation";
+import { eq, desc } from "drizzle-orm";
+import { cookies } from "next/headers";
+import { db } from "@/db";
+import { leads, clients } from "@/db/schema";
+import { verifyAdminSession } from "@/lib/auth";
 
-export async function POST(request: NextRequest) {
-  if (!isSheetsConfigured()) {
-    return fail("Google Sheets integration is not configured.", 503);
+const ADMIN_COOKIE = "admin_session";
+
+async function authenticate(req: NextRequest) {
+  const token = cookies().get(ADMIN_COOKIE)?.value;
+  if (!token || !verifyAdminSession(token)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  return null;
+}
 
-  const limited = enforceRateLimit(request, "leads");
-  if (limited) return limited;
+// ─── POST /api/leads — Create a new lead ─────────────────────────────────────
+export async function POST(req: NextRequest) {
+  const authError = await authenticate(req);
+  if (authError) return authError;
 
-  const body = await request.json().catch(() => null);
-  const parsed = leadSchema.safeParse(body);
+  try {
+    const body = await req.json();
+    const { clientId, name, phone, email, topic, notes } = body;
 
-  if (!parsed.success) {
-    return fail(parsed.error.issues[0]?.message || "Invalid input");
+    if (!clientId || !phone) {
+      return NextResponse.json(
+        { error: "clientId and phone are required" },
+        { status: 400 }
+      );
+    }
+
+    // Verify client exists
+    const [client] = await db.select().from(clients)
+      .where(eq(clients.id, clientId)).limit(1);
+
+    if (!client) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    const [newLead] = await db.insert(leads).values({
+      clientId,
+      name: name ?? "Unknown",
+      phone,
+      email: email ?? null,
+      topic: topic ?? "General inquiry",
+      notes: notes ?? null,
+      source: "web",
+      status: "new",
+    }).returning();
+
+    return NextResponse.json(newLead, { status: 201 });
+  } catch (err: any) {
+    console.error("[leads POST] Error:", err.message);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
+}
 
-  if (isHoneypotTriggered(parsed.data.website)) {
-    return fail("Unable to process request", 400);
+// ─── GET /api/leads — List leads ──────────────────────────────────────────────
+export async function GET(req: NextRequest) {
+  const authError = await authenticate(req);
+  if (authError) return authError;
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const clientId = searchParams.get("clientId");
+
+    if (clientId) {
+      const clientLeads = await db.select().from(leads)
+        .where(eq(leads.clientId, clientId))
+        .orderBy(desc(leads.createdAt));
+      return NextResponse.json(clientLeads);
+    }
+
+    const allLeads = await db.select().from(leads)
+      .orderBy(desc(leads.createdAt));
+    return NextResponse.json(allLeads);
+  } catch (err: any) {
+    console.error("[leads GET] Error:", err.message);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
-
-  const createdAt = new Date().toISOString();
-  const consentAt = createdAt;
-  const safeName = redactIdLikeNumbers(parsed.data.name);
-  const safeCallbackTime = redactIdLikeNumbers(parsed.data.preferredCallbackTime);
-  const notes = sanitizeFreeText(parsed.data.notes || "");
-
-  await appendSheetRow(SHEET_TABS.leads, [
-    createdAt,
-    safeName,
-    parsed.data.phone,
-    parsed.data.email,
-    parsed.data.topic,
-    safeCallbackTime,
-    String(parsed.data.consent),
-    consentAt,
-    "web",
-    notes
-  ]);
-
-  await sendEmail({
-    to: getErnestEmail(),
-    subject: `New Lead: ${safeName}`,
-    text: [
-      "New lead submitted via Luna Office Assistant.",
-      "",
-      `Name: ${safeName}`,
-      `Phone: ${parsed.data.phone}`,
-      `Email: ${parsed.data.email}`,
-      `Topic: ${parsed.data.topic}`,
-      `Preferred callback time: ${safeCallbackTime}`,
-      `Consent: ${parsed.data.consent}`,
-      `Consent timestamp: ${consentAt}`,
-      `Notes: ${notes || "N/A"}`
-    ].join("\n")
-  });
-
-  return NextResponse.json({
-    message: "Lead captured. Ernest will follow up."
-  });
 }
