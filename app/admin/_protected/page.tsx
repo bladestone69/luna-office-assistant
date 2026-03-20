@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { InstructionComposer } from "@/components/admin/InstructionComposer";
 import { isSheetsConfigured } from "@/lib/sheets";
