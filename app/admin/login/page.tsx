@@ -5,7 +5,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
-  const [username, setUsername] = useState("ernest");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -17,79 +17,97 @@ export default function AdminLoginPage() {
     setError("");
 
     try {
-      const response = await fetch("/api/admin/login", {
+      const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
-      const data = (await response.json()) as { error?: string };
+      const data = await response.json();
       if (!response.ok) {
         setError(data.error || "Login failed");
+        setSubmitting(false);
         return;
       }
 
-      router.replace("/admin");
+      if (data.role === "admin") {
+        router.replace("/admin");
+      } else {
+        router.replace("/");
+      }
       router.refresh();
     } catch {
       setError("Unable to login. Try again.");
-    } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-8 bg-[#0C0C0E]">
-      <div className="mb-6 text-center">
-        <span className="font-serif text-2xl font-bold text-[#C9A84C]">Luna</span>
+    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-8 bg-[#070E1A]">
+      {/* Logo */}
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#4A90D9] mx-auto mb-3">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2a10 10 0 1 0 10 10H12V2z" />
+            <path d="M12 2a10 10 0 0 1 10 10" />
+            <circle cx="12" cy="12" r="6" />
+          </svg>
+        </div>
+        <span className="text-xl font-bold text-[#F0F4F8]">Luna</span>
+        <p className="text-[#8899A6] text-sm mt-1">Admin Console</p>
       </div>
 
-      <form className="panel space-y-4 p-6 gold-glow" onSubmit={onSubmit}>
+      <form className="bg-[#0D1B2A] rounded-2xl p-6 shadow-xl border border-[#1E3A5F] space-y-4" onSubmit={onSubmit}>
         <div className="text-center">
-          <h1 className="font-serif text-2xl font-bold text-[#F5F0E8]">Admin Login</h1>
-          <p className="mt-2 text-sm text-[#8A8A8A]">
-            Secure access to instruction queue, AI feedback, and booking outcomes.
+          <h1 className="text-xl font-bold text-[#F0F4F8]">Admin Login</h1>
+          <p className="mt-2 text-sm text-[#8899A6]">
+            Secure access to Luna dispatch, clients, and settings.
           </p>
         </div>
 
-        <label className="block">
-          <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">
-            Username
-          </span>
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-[#F0F4F8] mb-1.5">Email</label>
           <input
-            className="input"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
+            id="email"
+            type="email"
+            className="w-full px-4 py-3 rounded-xl bg-[#070E1A] border border-[#1E3A5F] text-[#F0F4F8] placeholder-[#5B8DB8] text-sm focus:outline-none focus:border-[#4A90D9] transition-colors"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="admin@luna.ai"
             required
           />
-        </label>
+        </div>
 
-        <label className="block">
-          <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">
-            Password
-          </span>
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-[#F0F4F8] mb-1.5">Password</label>
           <input
-            className="input"
+            id="password"
             type="password"
+            className="w-full px-4 py-3 rounded-xl bg-[#070E1A] border border-[#1E3A5F] text-[#F0F4F8] placeholder-[#5B8DB8] text-sm focus:outline-none focus:border-[#4A90D9] transition-colors"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
             required
           />
-        </label>
+        </div>
 
         {error ? (
-          <p className="rounded-lg border border-red-800/40 bg-red-900/20 px-3 py-2 text-sm font-semibold text-red-400">
-            {error}
-          </p>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
         ) : null}
 
-        <button className="btn w-full" type="submit" disabled={submitting}>
-          {submitting ? "Signing in..." : "Sign in"}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full py-3 px-4 rounded-xl bg-[#4A90D9] hover:bg-[#3a7bc4] disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-sm transition-colors"
+        >
+          {submitting ? "Signing in…" : "Sign In"}
         </button>
       </form>
 
       <Link
         href="/"
-        className="mt-6 text-center text-sm text-[#8A8A8A] transition-colors hover:text-[#C9A84C]"
+        className="mt-6 text-center text-sm text-[#5B8DB8] hover:text-[#4A90D9] transition-colors"
       >
         ← Back to home
       </Link>
