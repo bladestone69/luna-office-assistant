@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
   }
 
   // ─── Check admin ─────────────────────────────────────────────────────────────
-  const adminUsername = process.env.ADMIN_USERNAME;
-  const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminUsername = (process.env.ADMIN_USERNAME ?? "").trim();
+  const adminPassword = (process.env.ADMIN_PASSWORD ?? "").trim();
 
   if (adminUsername && adminPassword) {
     const emailMatch = secureCompare(email.toLowerCase(), adminUsername.toLowerCase());
