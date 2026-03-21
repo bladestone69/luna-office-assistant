@@ -1830,3 +1830,11 @@
   transition: color 160ms;
 }
 .backBtn:hover { color: #4A90D9; }
+
+/* ─── Password form ─── */
+.passwordForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}

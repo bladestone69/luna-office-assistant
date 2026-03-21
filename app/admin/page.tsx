@@ -980,6 +980,9 @@ function SettingsSection() {
           <button className={styles.btnGhost} style={{ marginTop: 16 }}>Edit profile</button>
         </div>
         <div className={styles.infoCard}>
+          <AdminPasswordChange />
+        </div>
+        <div className={styles.infoCard}>
           <h3 className={styles.infoCardTitle}>Global Defaults</h3>
           <InfoRow label="Default plan" value="starter" />
           <InfoRow label="Trial period" value="14 days" />
@@ -987,6 +990,108 @@ function SettingsSection() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Admin password change ─────────────────────────────────────────────────────
+
+function AdminPasswordChange() {
+  const [current, setCurrent] = useState("");
+  const [fresh, setFresh] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState({ current: false, fresh: false, confirm: false });
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (fresh.length < 6) { setError("New password must be at least 6 characters"); return; }
+    if (fresh !== confirm) { setError("New passwords do not match"); return; }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/change-password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: current, newPassword: fresh }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Failed to change password"); return; }
+      setSuccess(true);
+      setCurrent(""); setFresh(""); setConfirm("");
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <>
+      <h3 className={styles.infoCardTitle}>Change Password</h3>
+      <form onSubmit={handleSubmit} className={styles.passwordForm}>
+        <div className={styles.passwordField}>
+          <input
+            type={showPass.current ? "text" : "password"}
+            className="input"
+            style={{ paddingRight: 40 }}
+            placeholder="Current password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            required
+          />
+          <button type="button" className={styles.passwordToggle} onClick={() => setShowPass((p) => ({ ...p, current: !p.current }))}>
+            {showPass.current ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            )}
+          </button>
+        </div>
+        <div className={styles.passwordField}>
+          <input
+            type={showPass.fresh ? "text" : "password"}
+            className="input"
+            style={{ paddingRight: 40 }}
+            placeholder="New password (min 6 chars)"
+            value={fresh}
+            onChange={(e) => setFresh(e.target.value)}
+            required
+          />
+          <button type="button" className={styles.passwordToggle} onClick={() => setShowPass((p) => ({ ...p, fresh: !p.fresh }))}>
+            {showPass.fresh ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            )}
+          </button>
+        </div>
+        <div className={styles.passwordField}>
+          <input
+            type={showPass.confirm ? "text" : "password"}
+            className="input"
+            style={{ paddingRight: 40 }}
+            placeholder="Confirm new password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+          />
+          <button type="button" className={styles.passwordToggle} onClick={() => setShowPass((p) => ({ ...p, confirm: !p.confirm }))}>
+            {showPass.confirm ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            )}
+          </button>
+        </div>
+        {error && <p style={{ color: "#f87171", fontSize: 12 }}>{error}</p>}
+        {success && <p style={{ color: "#4ade80", fontSize: 12 }}>Password updated successfully!</p>}
+        <button type="submit" className={styles.btnPrimary} style={{ width: "auto", marginTop: 4 }} disabled={loading}>
+          {loading ? "Saving…" : "Change Password"}
+        </button>
+      </form>
+    </>
   );
 }
 

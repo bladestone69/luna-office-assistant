@@ -122,6 +122,13 @@ export const tasks = pgTable("tasks", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ─── Admin Credentials (persistent password) ─────────────────────────────────
+export const adminCredentials = pgTable("admin_credentials", {
+  id: serial("id").primaryKey(),
+  passwordHash: text("password_hash").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
