@@ -19,7 +19,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     // Decode session from cookie
-    const match = document.cookie.match(/luna_client_session=([^;]+)/);
+    const match = document.cookie.match(/vercelaura_client_session=([^;]+)/);
     if (!match) { router.replace("/login"); return; }
     try {
       const decoded = Buffer.from(match[1], "base64url").toString("utf8");
@@ -138,7 +138,7 @@ export default function ProfilePage() {
         {/* Sign out */}
         <button
           onClick={() => {
-            document.cookie = "luna_client_session=; Max-Age=0; path=/";
+            document.cookie = "vercelaura_client_session=; Max-Age=0; path=/";
             router.replace("/login");
           }}
           style={{

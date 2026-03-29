@@ -2,7 +2,9 @@
 
 > **24/7 AI-powered virtual receptionist for South African SMEs.** Handles calls, qualifies leads, books appointments, and sends WhatsApp confirmations — in English, Afrikaans, Zulu, and Xhosa.
 
-**Live:** [luna-office-assistant.vercel.app](https://luna-office-assistant.vercel.app)
+**Vercel Aura** (formerly Luna) is an AI receptionist SaaS platform built for South African SMEs.
+
+**Live:** [www.auraoffice.xyz](https://www.auraoffice.xyz)
 
 ---
 

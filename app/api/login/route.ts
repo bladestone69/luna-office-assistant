@@ -5,8 +5,8 @@ import { eq } from "drizzle-orm";
 import { clientUsers } from "@/db/schema";
 import { createAdminSession } from "@/lib/auth";
 
-const ADMIN_COOKIE = "luna_admin_session";
-const CLIENT_COOKIE = "luna_client_session";
+const ADMIN_COOKIE = "vercelaura_admin_session";
+const CLIENT_COOKIE = "vercelaura_client_session";
 
 function secureCompare(a: string, b: string) {
   const aBuf = Buffer.from(a);

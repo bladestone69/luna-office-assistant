@@ -65,6 +65,6 @@ export function bookingConfirmationText(input: {
     "If details change, reply to this email and include your preferred callback time.",
     "",
     "Regards,",
-    "Luna Office Assistant"
+    "Vercel Aura Office Assistant"
   ].join("\n");
 }

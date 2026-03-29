@@ -41,16 +41,16 @@ async function seed() {
 
   // ── Demo client user ──────────────────────────────────────────────────────
   const demoUserHash = hashPassword("demo123");
-  const [existing] = await db.select().from(clientUsers).where(sql`email = 'demo@luna.ai'`).limit(1);
+  const [existing] = await db.select().from(clientUsers).where(sql`email = 'demo@vercelaura.ai'`).limit(1);
   if (!existing) {
     await db.insert(clientUsers).values({
       clientId,
       name: "Demo User",
-      email: "demo@luna.ai",
+      email: "demo@vercelaura.ai",
       passwordHash: demoUserHash,
       role: "agent",
     });
-    console.log("✅ Demo user created (demo@luna.ai / demo123)");
+    console.log("✅ Demo user created (demo@vercelaura.ai / demo123)");
   } else {
     console.log("ℹ️  Demo user already exists");
   }

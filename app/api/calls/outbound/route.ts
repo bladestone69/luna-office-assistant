@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
   }
 
   const greetingText = greeting ?? `Hello, connecting you to ${client.name}. Please hold.`;
-  const appUrl = process.env.APP_URL ?? "https://luna-office-assistant.vercel.app";
+  const appUrl = process.env.APP_URL ?? "https://www.auraoffice.xyz";
 
   // TwiML URL: when Twilio answers, it fetches this to get voice instructions
   // We return TwiML that says the greeting then dials the Hume EVI number

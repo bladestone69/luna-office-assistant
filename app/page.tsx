@@ -14,8 +14,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Check if client is logged in — if not, redirect to login
-    const clientSession = document.cookie.includes("luna_client_session");
-    const adminSession = document.cookie.includes("luna_admin_session");
+    const clientSession = document.cookie.includes("vercelaura_client_session");
+    const adminSession = document.cookie.includes("vercelaura_admin_session");
     if (!clientSession && !adminSession) {
       router.replace("/login");
     }

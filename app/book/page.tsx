@@ -6,7 +6,7 @@ export default function BookPage() {
     <main className="min-h-screen bg-[#0C0C0E] text-[#F5F0E8]">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <Link href="/" className="font-serif text-xl font-bold text-[#C9A84C]">
-          Luna
+          Vercel Aura
         </Link>
         <Link
           href="/"

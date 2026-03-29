@@ -3,7 +3,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import type { NextRequest } from "next/server";
 import { requiredEnv } from "@/lib/env";
 
-export const ADMIN_COOKIE = "luna_admin_session";
+export const ADMIN_COOKIE = "vercelaura_admin_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
 
 // ─── Password hashing (PBKDF2) ────────────────────────────────────────────────

@@ -52,7 +52,7 @@ export default function AdminLoginPage() {
             <circle cx="12" cy="12" r="6" />
           </svg>
         </div>
-        <span className="text-xl font-bold text-[#F0F4F8]">Luna</span>
+        <span className="text-xl font-bold text-[#F0F4F8]">Vercel Aura</span>
         <p className="text-[#8899A6] text-sm mt-1">Admin Console</p>
       </div>
 
@@ -60,7 +60,7 @@ export default function AdminLoginPage() {
         <div className="text-center">
           <h1 className="text-xl font-bold text-[#F0F4F8]">Admin Login</h1>
           <p className="mt-2 text-sm text-[#8899A6]">
-            Secure access to Luna dispatch, clients, and settings.
+            Secure access to Vercel Aura dispatch, clients, and settings.
           </p>
         </div>
 
@@ -72,7 +72,7 @@ export default function AdminLoginPage() {
             className="w-full px-4 py-3 rounded-xl bg-[#070E1A] border border-[#1E3A5F] text-[#F0F4F8] placeholder-[#5B8DB8] text-sm focus:outline-none focus:border-[#4A90D9] transition-colors"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@luna.ai"
+            placeholder="admin@vercelaura.ai"
             required
           />
         </div>

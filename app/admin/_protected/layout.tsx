@@ -24,7 +24,7 @@ export default function AdminProtectedLayout({
             href="/"
             className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C9A84C]/70"
           >
-            Luna Dispatch Console
+            Vercel Aura Dispatch Console
           </Link>
           <h1 className="mt-3 font-serif text-3xl font-bold text-[#F5F0E8] md:text-4xl">
             Dispatch + Results

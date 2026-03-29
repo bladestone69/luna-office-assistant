@@ -9,8 +9,8 @@ export async function GET(req: NextRequest) {
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Joanna">${greeting}</Say>
-  <Dial record="record-from-ringing" recordingStatusCallback="${process.env.APP_URL ?? "https://luna-office-assistant.vercel.app"}/api/webhooks/twilio/recording">
-    <Number statusCallbackEvent="initiated ringing answered completed" statusCallback="${process.env.APP_URL ?? "https://luna-office-assistant.vercel.app"}/api/webhooks/twilio/status">${humePhone}</Number>
+  <Dial record="record-from-ringing" recordingStatusCallback="${process.env.APP_URL ?? "https://www.auraoffice.xyz"}/api/webhooks/twilio/recording">
+    <Number statusCallbackEvent="initiated ringing answered completed" statusCallback="${process.env.APP_URL ?? "https://www.auraoffice.xyz"}/api/webhooks/twilio/status">${humePhone}</Number>
   </Dial>
 </Response>`;
 
