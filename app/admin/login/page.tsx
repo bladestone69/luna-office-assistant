@@ -52,7 +52,7 @@ export default function AdminLoginPage() {
             <circle cx="12" cy="12" r="6" />
           </svg>
         </div>
-        <span className="text-xl font-bold text-[#F0F4F8]">Vercel Aura</span>
+        <span className="text-xl font-bold text-[#F0F4F8]">Aura</span>
         <p className="text-[#8899A6] text-sm mt-1">Admin Console</p>
       </div>
 
@@ -60,7 +60,7 @@ export default function AdminLoginPage() {
         <div className="text-center">
           <h1 className="text-xl font-bold text-[#F0F4F8]">Admin Login</h1>
           <p className="mt-2 text-sm text-[#8899A6]">
-            Secure access to Vercel Aura dispatch, clients, and settings.
+            Secure access to Aura dispatch, clients, and settings.
           </p>
         </div>
 

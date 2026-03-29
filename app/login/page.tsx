@@ -53,7 +53,7 @@ export default function LoginPage() {
               <circle cx="12" cy="12" r="6" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-[#F0F4F8]">Vercel Aura</h1>
+          <h1 className="text-2xl font-bold text-[#F0F4F8]">Aura</h1>
           <p className="text-[#8899A6] text-sm mt-1">AI Receptionist</p>
         </div>
 
@@ -108,7 +108,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-[#5B8DB8] text-xs mt-6">
-          Vercel Aura Office Assistant
+          Aura Office Assistant
         </p>
       </div>
     </div>

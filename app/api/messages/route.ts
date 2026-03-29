@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     to: getErnestEmail(),
     subject: `${subjectPrefix}New Message: ${safeName}`,
     text: [
-      "New message submitted via Vercel Aura Office Assistant.",
+      "New message submitted via Aura Office Assistant.",
       "",
       `Name: ${safeName}`,
       `Phone: ${parsed.data.phone}`,

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Luna — AI Receptionist",
+  title: "Aura — AI Receptionist",
   description: "AI-powered receptionist dashboard for Hume EVI and Twilio.",
 };
 

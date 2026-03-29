@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     await Promise.all([
       sendEmail({
         to: parsed.data.email,
-        subject: "Meeting confirmed - Vercel Aura Office Assistant",
+        subject: "Meeting confirmed - Aura Office Assistant",
         text: bookingConfirmationText({
           name: safeName,
           meetingType: meeting.label,
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         to: getErnestEmail(),
         subject: `New Booking: ${getFirstName(safeName)}`,
         text: [
-          "Meeting confirmed via Vercel Aura Office Assistant.",
+          "Meeting confirmed via Aura Office Assistant.",
           "",
           `Name: ${safeName}`,
           `Phone: ${parsed.data.phone}`,
