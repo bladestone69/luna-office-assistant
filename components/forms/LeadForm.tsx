@@ -3,15 +3,27 @@
 import { FormEvent, useState } from "react";
 import { TOPIC_OPTIONS } from "@/lib/constants";
 
+const INDUSTRIES = [
+  "Medical Practice",
+  "Law Firm",
+  "Real Estate",
+  "Financial Services",
+  "Construction",
+  "Accounting",
+  "Other",
+];
+
 export function LeadForm() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [topic, setTopic] = useState<string>(TOPIC_OPTIONS[0]);
+  const [company, setCompany] = useState("");
+  const [industry, setIndustry] = useState(INDUSTRIES[0]);
+  const [topic, setTopic] = useState(TOPIC_OPTIONS[0]);
   const [preferredCallbackTime, setPreferredCallbackTime] = useState("");
-  const [notes, setNotes] = useState("");
+  const [message, setMessage] = useState("");
   const [consent, setConsent] = useState(false);
-  const [website, setWebsite] = useState("");
+  const [website, setWebsite] = useState(""); // honeypot
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -23,33 +35,39 @@ export function LeadForm() {
     setSuccess("");
 
     try {
-      const response = await fetch("/api/leads", {
+      const response = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
           phone,
           email,
+          company,
+          industry,
           topic,
           preferredCallbackTime,
+          message,
           consent,
-          notes,
-          website
-        })
+          website,
+        }),
       });
-      const data = (await response.json()) as { error?: string; message?: string };
+      const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Could not submit lead.");
+        setError(data.error || "Could not submit. Please try again.");
         return;
       }
 
-      setSuccess(data.message || "Lead submitted.");
+      setSuccess(data.message || "Thank you! We'll be in touch soon.");
+      // Reset form
       setName("");
       setPhone("");
       setEmail("");
+      setCompany("");
+      setIndustry(INDUSTRIES[0]);
+      setTopic(TOPIC_OPTIONS[0]);
       setPreferredCallbackTime("");
-      setNotes("");
+      setMessage("");
       setConsent(false);
       setWebsite("");
     } catch {
@@ -60,115 +78,92 @@ export function LeadForm() {
   }
 
   return (
-    <form className="panel mx-auto w-full max-w-2xl space-y-4 p-6" onSubmit={onSubmit}>
-      <h1 className="text-2xl font-bold text-[#F5F0E8]">Become a Client</h1>
-      <p className="text-sm text-[#8A8A8A]">
-        Share your details and broad topic. We do not process policy changes or account
-        requests on this form.
-      </p>
+    <form className="space-y-4" onSubmit={onSubmit}>
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">Full name *</span>
+          <input className="input" type="text" placeholder="Jane Smith" value={name}
+            onChange={(e) => setName(e.target.value)} required />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">Phone number *</span>
+          <input className="input" type="tel" placeholder="+27 11 000 0000" value={phone"
+            onChange={(e) => setPhone(e.target.value)} required />
+        </label>
+      </div>
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="block">
-          <span className="mb-1 block text-sm font-semibold">Full name</span>
-          <input
-            className="input"
-            type="text"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            required
-          />
+          <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">Business name</span>
+          <input className="input" type="text" placeholder="Smith & Partners" value={company}
+            onChange={(e) => setCompany(e.target.value)} />
         </label>
         <label className="block">
-          <span className="mb-1 block text-sm font-semibold">Phone</span>
-          <input
-            className="input"
-            type="tel"
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            required
-          />
+          <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">Industry</span>
+          <select className="input" value={industry} onChange={(e) => setIndustry(e.target.value)}>
+            {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
+          </select>
         </label>
       </div>
 
       <label className="block">
-        <span className="mb-1 block text-sm font-semibold">Email</span>
-        <input
-          className="input"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-        />
+        <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">Email *</span>
+        <input className="input" type="email" placeholder="jane@smith.co.za" value={email}
+          onChange={(e) => setEmail(e.target.value)} required />
       </label>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">What do you need help with?</span>
+          <select className="input" value={topic} onChange={(e) => setTopic(e.target.value)}>
+            {TOPIC_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">Best time to call</span>
+          <input className="input" type="text" placeholder="e.g. Weekdays after 14:00"
+            value={preferredCallbackTime} onChange={(e) => setPreferredCallbackTime(e.target.value)} />
+        </label>
+      </div>
 
       <label className="block">
-        <span className="mb-1 block text-sm font-semibold">Broad topic</span>
-        <select
-          className="input"
-          value={topic}
-          onChange={(event) => setTopic(event.target.value)}
-          required
-        >
-          {TOPIC_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">Anything else we should know?</span>
+        <textarea className="input min-h-[100px]" placeholder="Tell us briefly what you're looking for..."
+          value={message} onChange={(e) => setMessage(e.target.value)} />
       </label>
 
-      <label className="block">
-        <span className="mb-1 block text-sm font-semibold">Preferred callback time</span>
-        <input
-          className="input"
-          type="text"
-          placeholder="Example: Weekdays after 15:00"
-          value={preferredCallbackTime}
-          onChange={(event) => setPreferredCallbackTime(event.target.value)}
-          required
-        />
-      </label>
-
-      <label className="block">
-        <span className="mb-1 block text-sm font-semibold">Notes (optional)</span>
-        <textarea
-          className="input min-h-[100px]"
-          value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-          placeholder="Optional context. Please do not include ID numbers."
-        />
-      </label>
-
+      {/* Honeypot — hidden from real users */}
       <label className="hidden" aria-hidden>
-        Website
-        <input
-          type="text"
-          tabIndex={-1}
-          autoComplete="off"
-          value={website}
-          onChange={(event) => setWebsite(event.target.value)}
-        />
+        <input type="text" tabIndex={-1} autoComplete="off" value={website}
+          onChange={(e) => setWebsite(e.target.value)} />
       </label>
 
-      <label className="flex gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(event) => setConsent(event.target.checked)}
-          required
-        />
+      <label className="flex gap-2 text-sm text-[#8A8A8A] items-start">
+        <input type="checkbox" className="mt-0.5" checked={consent}
+          onChange={(e) => setConsent(e.target.checked)} required />
         <span>
-          I consent to POPIA-compliant processing of my contact details for callback and
-          onboarding only.
+          I consent to Aura Office contacting me about our services. I understand my details
+          will not be shared with third parties.{" "}
+          <span className="text-[#C9A84C]">POPIA-compliant.</span>
         </span>
       </label>
 
-      {error ? <p className="rounded-lg border border-red-800/40 bg-red-900/20 px-3 py-2 text-sm font-semibold text-red-400">{error}</p> : null}
-      {success ? <p className="rounded-lg border border-green-800/40 bg-green-900/20 px-3 py-2 text-sm font-semibold text-green-400">{success}</p> : null}
+      {error ? (
+        <p className="rounded-lg border border-red-800/40 bg-red-900/20 px-3 py-2 text-sm text-red-400">
+          {error}
+        </p>
+      ) : null}
 
-      <button type="submit" className="btn w-full" disabled={submitting}>
-        {submitting ? "Submitting..." : "Submit lead"}
-      </button>
+      {success ? (
+        <div className="rounded-lg border border-[#C9A84C]/40 bg-[#C9A84C]/10 px-4 py-4 text-center">
+          <p className="font-semibold text-[#C9A84C]">You&apos;re on the list!</p>
+          <p className="mt-1 text-sm text-[#8A8A8A]">{success}</p>
+        </div>
+      ) : (
+        <button type="submit" className="btn w-full py-3" disabled={submitting}>
+          {submitting ? "Submitting..." : "Get a call back"}
+        </button>
+      )}
     </form>
   );
 }
