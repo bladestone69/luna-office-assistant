@@ -11,15 +11,18 @@ const INDUSTRIES = [
   "Construction",
   "Accounting",
   "Other",
-];
+] as const;
+
+type IndustryOption = (typeof INDUSTRIES)[number];
+type TopicOption = (typeof TOPIC_OPTIONS)[number];
 
 export function LeadForm() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
-  const [industry, setIndustry] = useState(INDUSTRIES[0]);
-  const [topic, setTopic] = useState(TOPIC_OPTIONS[0]);
+  const [industry, setIndustry] = useState<IndustryOption>(INDUSTRIES[0]);
+  const [topic, setTopic] = useState<TopicOption>(TOPIC_OPTIONS[0]);
   const [preferredCallbackTime, setPreferredCallbackTime] = useState("");
   const [message, setMessage] = useState("");
   const [consent, setConsent] = useState(false);
@@ -100,7 +103,11 @@ export function LeadForm() {
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">Industry</span>
-          <select className="input" value={industry} onChange={(e) => setIndustry(e.target.value)}>
+          <select
+            className="input"
+            value={industry}
+            onChange={(e) => setIndustry(e.target.value as IndustryOption)}
+          >
             {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
           </select>
         </label>
@@ -115,7 +122,11 @@ export function LeadForm() {
       <div className="grid gap-3 md:grid-cols-2">
         <label className="block">
           <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">What do you need help with?</span>
-          <select className="input" value={topic} onChange={(e) => setTopic(e.target.value)}>
+          <select
+            className="input"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value as TopicOption)}
+          >
             {TOPIC_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </label>
