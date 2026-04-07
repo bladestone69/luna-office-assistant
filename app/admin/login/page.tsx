@@ -5,7 +5,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -17,10 +17,10 @@ export default function AdminLoginPage() {
     setError("");
 
     try {
-      const response = await fetch("/api/login", {
+      const response = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -29,11 +29,7 @@ export default function AdminLoginPage() {
         return;
       }
 
-      if (data.role === "admin") {
-        router.replace("/admin");
-      } else {
-        router.replace("/");
-      }
+      router.replace("/admin");
       router.refresh();
     } catch {
       setError("Unable to login. Try again.");
@@ -65,14 +61,14 @@ export default function AdminLoginPage() {
         </div>
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-[#F0F4F8] mb-1.5">Email</label>
+          <label htmlFor="username" className="block text-sm font-medium text-[#F0F4F8] mb-1.5">Username or Email</label>
           <input
-            id="email"
-            type="email"
+            id="username"
+            type="text"
             className="w-full px-4 py-3 rounded-xl bg-[#070E1A] border border-[#1E3A5F] text-[#F0F4F8] placeholder-[#5B8DB8] text-sm focus:outline-none focus:border-[#4A90D9] transition-colors"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@vercelaura.ai"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="ernest or erenst@outlook.com"
             required
           />
         </div>

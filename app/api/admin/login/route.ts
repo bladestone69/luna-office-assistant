@@ -13,12 +13,12 @@ export async function POST(request: NextRequest) {
     return fail(parsed.error.issues[0]?.message || "Invalid login request");
   }
 
-  const valid = verifyAdminCredentials(parsed.data.username, parsed.data.password);
+  const valid = await verifyAdminCredentials(parsed.data.username, parsed.data.password);
   if (!valid) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  const token = createAdminSession(parsed.data.username);
+  const token = createAdminSession(process.env.ADMIN_USERNAME || parsed.data.username);
   const response = NextResponse.json({ ok: true });
 
   response.cookies.set({

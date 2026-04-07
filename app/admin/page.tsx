@@ -198,7 +198,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!document.cookie.includes("vercelaura_admin_session")) {
-      router.replace("/login");
+      router.replace("/admin/login");
     }
   }, [router]);
 
