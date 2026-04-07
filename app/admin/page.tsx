@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import styles from "./page.module.css";
 import type { Client, HumeAgent, PhoneNumber, ClientUser } from "./types";
@@ -184,6 +185,7 @@ const MOCK_CALLS = [
 // ─── Root admin page ─────────────────────────────────────────────────────────
 
 export default function AdminPage() {
+  const router = useRouter();
   const [section, setSection] = useState<AdminSection>("clients");
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
@@ -193,6 +195,12 @@ export default function AdminPage() {
   const [showNewClient, setShowNewClient] = useState(false);
 
   const selectedClient = clients.find((c) => c.id === selectedClientId) ?? null;
+
+  useEffect(() => {
+    if (!document.cookie.includes("vercelaura_admin_session")) {
+      router.replace("/login");
+    }
+  }, [router]);
 
   async function loadClients() {
     setClientsLoading(true);
