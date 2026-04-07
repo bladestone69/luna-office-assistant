@@ -4,7 +4,6 @@ import type { NextRequest } from "next/server";
 import { requiredEnv } from "@/lib/env";
 
 export const ADMIN_COOKIE = "vercelaura_admin_session";
-export const CLIENT_COOKIE = "vercelaura_client_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
 
 // ─── Password hashing (PBKDF2) ────────────────────────────────────────────────
@@ -105,26 +104,6 @@ export function verifyAdminSession(token: string | undefined): boolean {
     return secureCompare(username, expectedUser);
   } catch {
     return false;
-  }
-}
-
-export function createClientSession(input: { userId: string; clientId: string }): string {
-  const expiry = Date.now() + SESSION_TTL_MS;
-  return Buffer.from(`${input.userId}|${input.clientId}|${expiry}`).toString("base64url");
-}
-
-export function parseClientSession(token: string | undefined) {
-  if (!token) return null;
-
-  try {
-    const decoded = Buffer.from(token, "base64url").toString("utf8");
-    const [userId, clientId, expiryString] = decoded.split("|");
-    if (!userId || !clientId || !expiryString) return null;
-    if (Date.now() > Number(expiryString)) return null;
-
-    return { userId, clientId };
-  } catch {
-    return null;
   }
 }
 
