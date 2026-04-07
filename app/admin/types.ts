@@ -3,7 +3,7 @@ export interface Client {
   name: string;
   industry: string;
   plan: "starter" | "pro";
-  status: "active" | "inactive" | "trial";
+  status: string;
   contactName: string;
   contactEmail: string;
   contactPhone?: string;
@@ -43,4 +43,60 @@ export interface ClientUser {
   name: string;
   email: string;
   role: "owner" | "member";
+}
+
+export interface AdminContact {
+  id: string;
+  fullName: string;
+  phoneE164: string;
+  email: string;
+  source: string;
+  lastSeenAt: string;
+}
+
+export interface AdminLead {
+  id: string;
+  name: string;
+  phone: string;
+  topic: string;
+  preferredCallbackTime: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface AdminTranscriptLine {
+  speaker: string;
+  text: string;
+}
+
+export interface AdminCall {
+  id: string;
+  direction: string;
+  contactName: string;
+  contactPhone: string;
+  durationSeconds: number;
+  startedAt: string;
+  outcome: string;
+  summary: string | null;
+  hasTranscript: boolean;
+  transcriptLines: AdminTranscriptLine[];
+}
+
+export interface AdminTask {
+  id: string;
+  taskType: string;
+  status: string;
+  dueAt: string;
+  notes: string;
+}
+
+export interface AdminClientDetail {
+  client: Client;
+  humeAgents: HumeAgent[];
+  phoneNumbers: PhoneNumber[];
+  clientUsers: ClientUser[];
+  contacts: AdminContact[];
+  leads: AdminLead[];
+  calls: AdminCall[];
+  tasks: AdminTask[];
 }

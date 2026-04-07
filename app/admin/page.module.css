@@ -193,6 +193,26 @@
   border-bottom: 1px solid rgba(74, 144, 217, 0.06);
 }
 
+.clientCell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.clientAvatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(74, 144, 217, 0.15);
+  color: #4A90D9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
 .table tr:last-child td {
   border-bottom: none;
 }
@@ -1529,6 +1549,7 @@
 .transcriptLine {
   display: flex;
 }
+.transcriptAssistant {}
 .transcriptLine.transcriptAssistant {
   flex-direction: row-reverse;
 }
