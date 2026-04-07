@@ -74,7 +74,7 @@ export const contacts = pgTable("contacts", {
 // ─── Leads ─────────────────────────────────────────────────────────────────────
 export const leads = pgTable("leads", {
   id: uuid("id").primaryKey().defaultRandom(),
-  clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  clientId: uuid("client_id").references(() => clients.id, { onDelete: "cascade" }),
   contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
   name: text("name"),
   phone: text("phone").notNull(),
