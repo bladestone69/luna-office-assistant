@@ -37,13 +37,16 @@ export default function LandingPage() {
 
     // Smooth scroll
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-      anchor.addEventListener('click', function (e) {
+      anchor.addEventListener('click', (e) => {
         e.preventDefault();
-        const target = document.querySelector((this as HTMLElement).getAttribute('href') || '');
-        if (target) {
-          const offset = 80;
-          const top = (target as HTMLElement).getBoundingClientRect().top + window.pageYOffset - offset;
-          window.scrollTo({ top, behavior: 'smooth' });
+        const href = (e.currentTarget as HTMLElement).getAttribute('href');
+        if (href) {
+          const target = document.querySelector(href);
+          if (target) {
+            const offset = 80;
+            const top = (target as HTMLElement).getBoundingClientRect().top + window.pageYOffset - offset;
+            window.scrollTo({ top, behavior: 'smooth' });
+          }
         }
       });
     });
