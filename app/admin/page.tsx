@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import styles from "./page.module.css";
 import type { Client, HumeAgent, PhoneNumber, ClientUser } from "./types";
@@ -30,6 +31,17 @@ const CLIENT_TABS = [
   "Tasks",
 ] as const;
 type ClientTab = (typeof CLIENT_TABS)[number];
+
+async function requestJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const response = await fetch(input, init);
+  const data = (await response.json().catch(() => ({}))) as { error?: string } & T;
+
+  if (!response.ok) {
+    throw new Error(data.error || "Request failed");
+  }
+
+  return data;
+}
 
 // ─── Mock data ───────────────────────────────────────────────────────────────
 
@@ -173,13 +185,43 @@ const MOCK_CALLS = [
 // ─── Root admin page ─────────────────────────────────────────────────────────
 
 export default function AdminPage() {
+  const router = useRouter();
   const [section, setSection] = useState<AdminSection>("clients");
-  const [clients] = useState<Client[]>(MOCK_CLIENTS);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(true);
+  const [clientsError, setClientsError] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [clientTab, setClientTab] = useState<ClientTab>("Overview");
   const [showNewClient, setShowNewClient] = useState(false);
 
   const selectedClient = clients.find((c) => c.id === selectedClientId) ?? null;
+
+  useEffect(() => {
+    if (!document.cookie.includes("vercelaura_admin_session")) {
+      router.replace("/login");
+    }
+  }, [router]);
+
+  async function loadClients() {
+    setClientsLoading(true);
+    setClientsError("");
+
+    try {
+      const data = await requestJson<Client[]>("/api/clients");
+      setClients(data);
+      if (selectedClientId && !data.some((client) => client.id === selectedClientId)) {
+        setSelectedClientId(null);
+      }
+    } catch (error) {
+      setClientsError(error instanceof Error ? error.message : "Could not load clients");
+    } finally {
+      setClientsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadClients();
+  }, []);
 
   return (
     <div className={styles.layout}>
@@ -196,25 +238,42 @@ export default function AdminPage() {
         <TopBar />
 
         <div className={styles.content}>
-          {section === "dashboard" && (
+          {clientsError ? (
+            <div className={styles.infoCard}>
+              <h3 className={styles.infoCardTitle}>Admin data unavailable</h3>
+              <p className={styles.sectionDesc}>{clientsError}</p>
+              <button className={styles.btnPrimary} type="button" onClick={() => void loadClients()}>
+                Retry
+              </button>
+            </div>
+          ) : null}
+
+          {clientsLoading ? (
+            <div className={styles.infoCard}>
+              <h3 className={styles.infoCardTitle}>Loading admin workspace…</h3>
+            </div>
+          ) : null}
+
+          {!clientsLoading && section === "dashboard" && (
             <DashboardSection clients={clients} onViewClient={(id) => { setSelectedClientId(id); setSection("clients"); }} />
           )}
-          {section === "clients" && !selectedClient && (
+          {!clientsLoading && section === "clients" && !selectedClient && (
             <ClientsSection
               clients={clients}
               onSelect={(c) => { setSelectedClientId(c.id); setClientTab("Overview"); }}
               onNew={() => setShowNewClient(true)}
             />
           )}
-          {section === "clients" && selectedClient && (
+          {!clientsLoading && section === "clients" && selectedClient && (
             <ClientDetailSection
               client={selectedClient}
               onBack={() => setSelectedClientId(null)}
               activeTab={clientTab}
               onTabChange={setClientTab}
+              onClientUpdated={() => void loadClients()}
             />
           )}
-          {section === "usage" && <UsageSection clients={clients} />}
+          {!clientsLoading && section === "usage" && <UsageSection clients={clients} />}
           {section === "integrations" && <IntegrationsSection />}
           {section === "settings" && <SettingsSection />}
         </div>
@@ -224,8 +283,10 @@ export default function AdminPage() {
         <NewClientModal
           onClose={() => setShowNewClient(false)}
           onCreate={(c) => {
-            clients.push(c);
+            setClients((current) => [c, ...current]);
             setShowNewClient(false);
+            setSelectedClientId(c.id);
+            setClientTab("Overview");
           }}
         />
       )}
@@ -382,11 +443,13 @@ function ClientDetailSection({
   onBack,
   activeTab,
   onTabChange,
+  onClientUpdated,
 }: {
   client: Client;
   onBack: () => void;
   activeTab: ClientTab;
   onTabChange: (t: ClientTab) => void;
+  onClientUpdated: () => void;
 }) {
   return (
     <div className={styles.section}>
@@ -421,8 +484,8 @@ function ClientDetailSection({
 
       {/* Tab content */}
       {activeTab === "Overview" && <OverviewTab client={client} />}
-      {activeTab === "Hume Agent" && <HumeAgentTab clientId={client.id} />}
-      {activeTab === "Numbers" && <NumbersTab clientId={client.id} />}
+      {activeTab === "Hume Agent" && <HumeAgentTab clientId={client.id} onUpdated={onClientUpdated} />}
+      {activeTab === "Numbers" && <NumbersTab clientId={client.id} onUpdated={onClientUpdated} />}
       {activeTab === "Contacts" && <ContactsTab clientId={client.id} />}
       {activeTab === "Leads" && <LeadsTab clientId={client.id} />}
       {activeTab === "Calls" && <CallsTab clientId={client.id} />}
@@ -463,6 +526,9 @@ function OverviewTab({ client }: { client: Client }) {
 // ─── Client access panel ─────────────────────────────────────────────────────
 
 function ClientAccessPanel({ clientId }: { clientId: string }) {
+  const [users, setUsers] = useState<ClientUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState("");
   const [copied, setCopied] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
   const [resetUserId, setResetUserId] = useState<string | null>(null);
@@ -470,14 +536,89 @@ function ClientAccessPanel({ clientId }: { clientId: string }) {
   const [newPassword, setNewPassword] = useState("client123");
   const [passwordValue, setPasswordValue] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [feedbackTone, setFeedbackTone] = useState<"error" | "success">("success");
+  const [submitting, setSubmitting] = useState(false);
+  const [loginUrl, setLoginUrl] = useState("/login");
 
-  const loginUrl = `https://app.luna.ai/login/${clientId}`;
+  async function loadUsers() {
+    setUsersLoading(true);
+    setUsersError("");
+
+    try {
+      const data = await requestJson<ClientUser[]>(`/api/clients/${clientId}/users`);
+      setUsers(data);
+    } catch (error) {
+      setUsersError(error instanceof Error ? error.message : "Could not load client logins");
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    setLoginUrl(`${window.location.origin}/login`);
+    void loadUsers();
+  }, [clientId]);
 
   const copyUrl = () => {
     navigator.clipboard.writeText(loginUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  async function handleCreateUser() {
+    if (!newEmail || newPassword.length < 6) return;
+
+    setSubmitting(true);
+    setFeedback("");
+    setFeedbackTone("success");
+
+    try {
+      const created = await requestJson<ClientUser>(`/api/clients/${clientId}/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: newEmail, password: newPassword }),
+      });
+
+      setUsers((current) => [...current, created]);
+      setNewEmail("");
+      setNewPassword("client123");
+      setAddingUser(false);
+      setFeedback("Client login created.");
+      setFeedbackTone("success");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "Could not create login");
+      setFeedbackTone("error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!resetUserId || passwordValue.length < 6) return;
+
+    setSubmitting(true);
+    setFeedback("");
+    setFeedbackTone("success");
+
+    try {
+      await requestJson<{ ok: boolean }>(`/api/clients/${clientId}/users/${resetUserId}/password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: passwordValue }),
+      });
+
+      setResetUserId(null);
+      setPasswordValue("");
+      setFeedback("Password reset saved.");
+      setFeedbackTone("success");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "Could not reset password");
+      setFeedbackTone("error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className={styles.accessPanel}>
@@ -513,7 +654,9 @@ function ClientAccessPanel({ clientId }: { clientId: string }) {
       {/* Team logins */}
       <div className={styles.usersSection}>
         <p className={styles.usersSectionLabel}>Team logins</p>
-        {MOCK_USERS.filter((u) => u.clientId === clientId).map((u) => (
+        {usersLoading ? <p className={styles.tdMuted}>Loading logins…</p> : null}
+        {usersError ? <p style={{ color: "#f87171", fontSize: 12 }}>{usersError}</p> : null}
+        {users.map((u) => (
           <div key={u.id} className={styles.userRow}>
             <div className={styles.smallAvatar}>{u.name.split(" ").map((n) => n[0]).join("")}</div>
             <div className={styles.userInfo}>
@@ -523,6 +666,7 @@ function ClientAccessPanel({ clientId }: { clientId: string }) {
             <div className={styles.userActions}>
               <button
                 className={styles.btnSm}
+                type="button"
                 onClick={() => { setResetUserId(u.id); setPasswordValue(""); }}
               >
                 Reset password
@@ -546,6 +690,7 @@ function ClientAccessPanel({ clientId }: { clientId: string }) {
               />
               <button
                 className={styles.passwordToggle}
+                type="button"
                 onClick={() => setShowPassword((s) => !s)}
               >
                 {showPassword ? (
@@ -556,8 +701,15 @@ function ClientAccessPanel({ clientId }: { clientId: string }) {
               </button>
             </div>
             <div className={styles.inlineFormActions}>
-              <button className={styles.btnGhostSm} onClick={() => setResetUserId(null)}>Cancel</button>
-              <button className={styles.btnSm} disabled={passwordValue.length < 6}>Save Password</button>
+              <button className={styles.btnGhostSm} type="button" onClick={() => setResetUserId(null)}>Cancel</button>
+              <button
+                className={styles.btnSm}
+                type="button"
+                onClick={() => void handleResetPassword()}
+                disabled={passwordValue.length < 6 || submitting}
+              >
+                {submitting ? "Saving..." : "Save Password"}
+              </button>
             </div>
           </div>
         )}
@@ -569,15 +721,28 @@ function ClientAccessPanel({ clientId }: { clientId: string }) {
             <input className="input" type="email" placeholder="Email address" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
             <input className="input" type="text" placeholder="Password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
             <div className={styles.inlineFormActions}>
-              <button className={styles.btnGhostSm} onClick={() => setAddingUser(false)}>Cancel</button>
-              <button className={styles.btnSm} disabled={!newEmail || newPassword.length < 6}>Create Login</button>
+              <button className={styles.btnGhostSm} type="button" onClick={() => setAddingUser(false)}>Cancel</button>
+              <button
+                className={styles.btnSm}
+                type="button"
+                onClick={() => void handleCreateUser()}
+                disabled={!newEmail || newPassword.length < 6 || submitting}
+              >
+                {submitting ? "Creating..." : "Create Login"}
+              </button>
             </div>
           </div>
         ) : (
-          <button className={styles.btnAddUser} onClick={() => setAddingUser(true)}>
+          <button className={styles.btnAddUser} type="button" onClick={() => setAddingUser(true)}>
             + Add another login
           </button>
         )}
+
+        {feedback ? (
+          <p style={{ color: feedbackTone === "success" ? "#4ade80" : "#f87171", fontSize: 12 }}>
+            {feedback}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -585,12 +750,41 @@ function ClientAccessPanel({ clientId }: { clientId: string }) {
 
 // ─── Hume Agent tab ──────────────────────────────────────────────────────────
 
-function HumeAgentTab({ clientId }: { clientId: string }) {
-  const [agents, setAgents] = useState(HUME_AGENTS.filter((a) => a.clientId === clientId));
+function HumeAgentTab({
+  clientId,
+  onUpdated,
+}: {
+  clientId: string;
+  onUpdated: () => void;
+}) {
+  const [agents, setAgents] = useState<HumeAgent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", configId: "", systemPrompt: "", greetingScript: "" });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  async function loadAgents() {
+    setLoading(true);
+    setLoadError("");
+
+    try {
+      const data = await requestJson<HumeAgent[]>(`/api/clients/${clientId}/hume-agents`);
+      setAgents(data);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load Hume agents");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadAgents();
+  }, [clientId]);
 
   const startEdit = (agent?: HumeAgent) => {
+    setSaveError("");
     if (agent) {
       setEditingId(agent.id);
       setForm({ name: agent.name, configId: agent.configId, systemPrompt: agent.systemPrompt ?? "", greetingScript: agent.greetingScript ?? "" });
@@ -600,25 +794,50 @@ function HumeAgentTab({ clientId }: { clientId: string }) {
     }
   };
 
-  const save = () => {
-    if (editingId === "new") {
-      const newAgent: HumeAgent = {
-        id: `a${Date.now()}`, clientId, name: form.name, configId: form.configId,
-        systemPrompt: form.systemPrompt, greetingScript: form.greetingScript, status: "active",
-      };
-      setAgents((prev) => [...prev, newAgent]);
-    } else {
-      setAgents((prev) => prev.map((a) => a.id === editingId ? { ...a, ...form } : a));
+  async function save() {
+    if (!form.name.trim() || !form.configId.trim()) {
+      setSaveError("Agent name and Hume Config ID are required.");
+      return;
     }
-    setEditingId(null);
-  };
+
+    setSaving(true);
+    setSaveError("");
+
+    try {
+      const url =
+        editingId === "new"
+          ? `/api/clients/${clientId}/hume-agents`
+          : `/api/clients/${clientId}/hume-agents/${editingId}`;
+      const method = editingId === "new" ? "POST" : "PUT";
+      const saved = await requestJson<HumeAgent>(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      setAgents((prev) =>
+        editingId === "new"
+          ? [...prev, saved]
+          : prev.map((agent) => (agent.id === saved.id ? saved : agent))
+      );
+      setEditingId(null);
+      onUpdated();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not save agent");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className={styles.tabContent}>
       <div className={styles.tabHeader}>
         <h2 className={styles.tabTitle}>Hume AI Agents</h2>
-        <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={() => startEdit()}>+ New Agent</button>
+        <button className={styles.btnPrimary} style={{ width: "auto" }} type="button" onClick={() => startEdit()}>+ New Agent</button>
       </div>
+
+      {loading ? <p className={styles.tdMuted}>Loading agents…</p> : null}
+      {loadError ? <p style={{ color: "#f87171", fontSize: 12 }}>{loadError}</p> : null}
 
       {agents.map((a) => (
         <div key={a.id} className={styles.agentCard}>
@@ -627,7 +846,7 @@ function HumeAgentTab({ clientId }: { clientId: string }) {
               <p className={styles.agentName}>{a.name}</p>
               <p className={styles.agentConfigId}>{a.configId}</p>
             </div>
-            <button className={styles.btnGhost} style={{ fontSize: 12 }} onClick={() => startEdit(a)}>Edit</button>
+            <button className={styles.btnGhost} style={{ fontSize: 12 }} type="button" onClick={() => startEdit(a)}>Edit</button>
           </div>
           {a.systemPrompt && <p className={styles.agentPrompt}>{a.systemPrompt}</p>}
         </div>
@@ -654,9 +873,12 @@ function HumeAgentTab({ clientId }: { clientId: string }) {
             <label className={styles.fieldLabel}>Greeting script</label>
             <textarea className="input" style={{ minHeight: 80 }} value={form.greetingScript} onChange={(e) => setForm((f) => ({ ...f, greetingScript: e.target.value }))} placeholder="What the AI says when the call connects..." />
           </div>
+          {saveError ? <p style={{ color: "#f87171", fontSize: 12 }}>{saveError}</p> : null}
           <div className={styles.formActions}>
-            <button className={styles.btnGhost} onClick={() => setEditingId(null)}>Cancel</button>
-            <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={save}>Save</button>
+            <button className={styles.btnGhost} type="button" onClick={() => setEditingId(null)}>Cancel</button>
+            <button className={styles.btnPrimary} style={{ width: "auto" }} type="button" onClick={() => void save()}>
+              {saving ? "Saving..." : "Save"}
+            </button>
           </div>
         </div>
       )}
@@ -666,28 +888,74 @@ function HumeAgentTab({ clientId }: { clientId: string }) {
 
 // ─── Numbers tab ─────────────────────────────────────────────────────────────
 
-function NumbersTab({ clientId }: { clientId: string }) {
-  const [numbers, setNumbers] = useState(MOCK_NUMBERS.filter((n) => n.clientId === clientId));
-  const [agents] = useState(HUME_AGENTS.filter((a) => a.clientId === clientId));
+function NumbersTab({
+  clientId,
+  onUpdated,
+}: {
+  clientId: string;
+  onUpdated: () => void;
+}) {
+  const [numbers, setNumbers] = useState<PhoneNumber[]>([]);
+  const [agents, setAgents] = useState<HumeAgent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState({ twilioNumber: "", humeAgentId: "", isPrimary: false });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
-  const addNumber = () => {
-    if (!form.twilioNumber) return;
-    const newNum: PhoneNumber = {
-      id: `p${Date.now()}`, clientId, number: form.twilioNumber,
-      agentId: form.humeAgentId, isPrimary: form.isPrimary,
-      voiceEnabled: true, smsEnabled: false, status: "active",
-    };
-    setNumbers((prev) => [...prev, newNum]);
-    setForm({ twilioNumber: "", humeAgentId: "", isPrimary: false });
-  };
+  async function loadData() {
+    setLoading(true);
+    setLoadError("");
+
+    try {
+      const [numbersData, agentsData] = await Promise.all([
+        requestJson<PhoneNumber[]>(`/api/clients/${clientId}/phone-numbers`),
+        requestJson<HumeAgent[]>(`/api/clients/${clientId}/hume-agents`),
+      ]);
+      setNumbers(numbersData);
+      setAgents(agentsData);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load phone numbers");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadData();
+  }, [clientId]);
+
+  async function addNumber() {
+    if (!form.twilioNumber.trim()) return;
+
+    setSaving(true);
+    setSaveError("");
+
+    try {
+      const created = await requestJson<PhoneNumber>(`/api/clients/${clientId}/phone-numbers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      setNumbers((prev) => [...prev, created]);
+      setForm({ twilioNumber: "", humeAgentId: "", isPrimary: false });
+      onUpdated();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not save phone number");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className={styles.tabContent}>
       <div className={styles.tabHeader}>
         <h2 className={styles.tabTitle}>Assigned Phone Numbers</h2>
-        <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={() => setForm({ twilioNumber: "", humeAgentId: "", isPrimary: false })}>+ Add Number</button>
+        <button className={styles.btnPrimary} style={{ width: "auto" }} type="button" onClick={() => setForm({ twilioNumber: "", humeAgentId: "", isPrimary: false })}>+ Add Number</button>
       </div>
+
+      {loading ? <p className={styles.tdMuted}>Loading phone numbers…</p> : null}
+      {loadError ? <p style={{ color: "#f87171", fontSize: 12 }}>{loadError}</p> : null}
 
       {numbers.map((n) => {
         const agent = agents.find((a) => a.id === n.agentId);
@@ -722,7 +990,16 @@ function NumbersTab({ clientId }: { clientId: string }) {
           <input type="checkbox" checked={form.isPrimary} onChange={(e) => setForm((f) => ({ ...f, isPrimary: e.target.checked }))} />
           Set as primary number
         </label>
-        <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={addNumber} disabled={!form.twilioNumber}>Add Number</button>
+        {saveError ? <p style={{ color: "#f87171", fontSize: 12 }}>{saveError}</p> : null}
+        <button
+          className={styles.btnPrimary}
+          style={{ width: "auto" }}
+          type="button"
+          onClick={() => void addNumber()}
+          disabled={!form.twilioNumber || saving}
+        >
+          {saving ? "Saving..." : "Add Number"}
+        </button>
       </div>
     </div>
   );
@@ -1104,19 +1381,38 @@ function NewClientModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [plan, setPlan] = useState<"starter" | "pro">("starter");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleCreate = () => {
+  async function handleCreate() {
     if (!name || !contactEmail) return;
-    onCreate({
-      id: String(Date.now()),
-      name, industry, plan, status: "active",
-      contactName, contactEmail, contactPhone,
-      timezone: "Africa/Johannesburg",
-      HumeAgentCount: 0, phoneNumberCount: 0,
-      totalCalls: 0, callsToday: 0, newLeadsToday: 0,
-      createdAt: new Date().toISOString().split("T")[0],
-    });
-  };
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const created = await requestJson<Client>("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email: contactEmail,
+          phone: contactPhone,
+          industry,
+          plan,
+          contactName,
+        }),
+      });
+      onCreate({
+        ...created,
+        contactName: contactName || created.contactName,
+      });
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not create client");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
@@ -1142,17 +1438,20 @@ function NewClientModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
             <label className={styles.fieldLabel}>Plan</label>
             <div className={styles.planPicker}>
               {(["starter", "pro"] as const).map((p) => (
-                <button key={p} className={`${styles.planOption} ${plan === p ? styles.planSelected : ""}`} onClick={() => setPlan(p)}>
+                <button key={p} type="button" className={`${styles.planOption} ${plan === p ? styles.planSelected : ""}`} onClick={() => setPlan(p)}>
                   <span className={styles.planName}>{p}</span>
                   <span className={styles.planPrice}>{p === "starter" ? "R299/mo" : "R799/mo"}</span>
                 </button>
               ))}
             </div>
           </div>
+          {error ? <p style={{ color: "#f87171", fontSize: 12 }}>{error}</p> : null}
         </div>
         <div className={styles.modalFooter}>
-          <button className={styles.btnGhost} onClick={onClose}>Cancel</button>
-          <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={handleCreate}>Create Client</button>
+          <button className={styles.btnGhost} type="button" onClick={onClose}>Cancel</button>
+          <button className={styles.btnPrimary} style={{ width: "auto" }} type="button" onClick={() => void handleCreate()} disabled={submitting}>
+            {submitting ? "Creating..." : "Create Client"}
+          </button>
         </div>
       </div>
     </div>
