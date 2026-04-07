@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         industry ? `Industry: ${industry}` : null,
         preferredCallbackTime ? `Preferred callback: ${preferredCallbackTime}` : null,
       ].filter(Boolean).join("\n") || null,
-    });
+    }).returning();
 
     // Notify Ernest
     try {
