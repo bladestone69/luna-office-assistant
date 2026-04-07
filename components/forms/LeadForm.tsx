@@ -87,7 +87,7 @@ export function LeadForm() {
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-semibold text-[#F5F0E8]">Phone number *</span>
-          <input className="input" type="tel" placeholder="+27 11 000 0000" value={phone"
+          <input className="input" type="tel" placeholder="+27 11 000 0000" value={phone}
             onChange={(e) => setPhone(e.target.value)} required />
         </label>
       </div>
