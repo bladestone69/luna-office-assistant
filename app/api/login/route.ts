@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clientUsers } from "@/db/schema";
@@ -7,9 +8,15 @@ import {
   CLIENT_COOKIE,
   createAdminSession,
   createClientSession,
-  verifyAdminCredentials,
   verifyPassword,
 } from "@/lib/auth";
+
+function secureCompare(a: string, b: string) {
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  if (aBuf.length !== bBuf.length) return false;
+  return timingSafeEqual(aBuf, bBuf);
+}
 
 export async function POST(req: NextRequest) {
   let body: { email?: string; password?: string };
@@ -26,9 +33,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
   }
 
-  const isAdmin = await verifyAdminCredentials(email, password);
-  if (isAdmin) {
-    const token = createAdminSession(email);
+  const adminUsername = (process.env.ADMIN_USERNAME ?? "").trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD ?? "";
+
+  if (
+    adminUsername &&
+    adminPassword &&
+    secureCompare(email, adminUsername) &&
+    secureCompare(password, adminPassword)
+  ) {
+    const token = createAdminSession(process.env.ADMIN_USERNAME ?? email);
     const response = NextResponse.json({ ok: true, role: "admin" });
     response.cookies.set({
       name: ADMIN_COOKIE,
