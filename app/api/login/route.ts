@@ -39,18 +39,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { email, password } = body;
+  const email = typeof body.email === "string" ? body.email.trim() : "";
+  const password = typeof body.password === "string" ? body.password : "";
 
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
   }
 
   // ─── Check admin ─────────────────────────────────────────────────────────────
-  const adminUsername = (process.env.ADMIN_USERNAME ?? "").trim();
+  const adminUsername = (process.env.ADMIN_USERNAME ?? "").trim().toLowerCase();
   const adminPassword = (process.env.ADMIN_PASSWORD ?? "").trim();
 
   if (adminUsername && adminPassword) {
-    const emailMatch = secureCompare(email.toLowerCase(), adminUsername.toLowerCase());
+    const emailMatch = secureCompare(email.toLowerCase(), adminUsername);
     const passMatch = secureCompare(password, adminPassword);
     if (emailMatch && passMatch) {
       const token = createAdminSession(email);

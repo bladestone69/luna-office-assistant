@@ -6,6 +6,10 @@ import { requiredEnv } from "@/lib/env";
 export const ADMIN_COOKIE = "vercelaura_admin_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
 
+function normalizeAdminUsername(value: string) {
+  return value.trim().toLowerCase();
+}
+
 // ─── Password hashing (PBKDF2) ────────────────────────────────────────────────
 
 const ITERATIONS = 100_000;
@@ -57,8 +61,8 @@ function secureCompare(a: string, b: string) {
 // ─── Admin auth ───────────────────────────────────────────────────────────────
 
 export async function verifyAdminCredentials(username: string, password: string) {
-  const expectedUser = process.env.ADMIN_USERNAME || "ernest";
-  const userMatch = secureCompare(username.toLowerCase(), expectedUser.toLowerCase());
+  const expectedUser = normalizeAdminUsername(process.env.ADMIN_USERNAME || "ernest");
+  const userMatch = secureCompare(normalizeAdminUsername(username), expectedUser);
   if (!userMatch) return false;
 
   // Check DB-stored hash first (allows password changes to persist)
@@ -82,7 +86,7 @@ export async function verifyAdminCredentials(username: string, password: string)
 
 export function createAdminSession(username: string): string {
   const expiry = Date.now() + SESSION_TTL_MS;
-  const payload = `${username}|${expiry}`;
+  const payload = `${normalizeAdminUsername(username)}|${expiry}`;
   const signature = sign(payload);
   return Buffer.from(`${payload}|${signature}`).toString("base64url");
 }
@@ -100,8 +104,8 @@ export function verifyAdminSession(token: string | undefined): boolean {
     if (!secureCompare(signature, expectedSig)) return false;
 
     if (Date.now() > Number(expiryString)) return false;
-    const expectedUser = process.env.ADMIN_USERNAME || "ernest";
-    return secureCompare(username, expectedUser);
+    const expectedUser = normalizeAdminUsername(process.env.ADMIN_USERNAME || "ernest");
+    return secureCompare(normalizeAdminUsername(username), expectedUser);
   } catch {
     return false;
   }
