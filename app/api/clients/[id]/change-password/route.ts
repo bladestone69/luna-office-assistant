@@ -1,22 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clientUsers } from "@/db/schema";
-import { verifyPassword } from "@/lib/auth";
+import { CLIENT_COOKIE, parseClientSession } from "@/lib/client-session";
+import { hashClientPassword, verifyClientPassword } from "@/lib/client-password";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  // Verify client session
-  const token = req.cookies.get("luna_client_session")?.value;
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = parseClientSession(req.cookies.get(CLIENT_COOKIE)?.value);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  try {
-    const decoded = Buffer.from(token, "base64url").toString("utf8");
-    const [userId, clientId] = decoded.split("|").slice(0, 2);
-    if (clientId !== id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  } catch {
-    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+  if (session.clientId !== id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => null);
@@ -29,16 +27,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "New password must be at least 6 characters" }, { status: 400 });
   }
 
-  const [user] = await db.select().from(clientUsers).where(eq(clientUsers.id, id)).limit(1);
+  const [user] = await db
+    .select()
+    .from(clientUsers)
+    .where(and(eq(clientUsers.id, session.userId), eq(clientUsers.clientId, session.clientId)))
+    .limit(1);
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  if (!verifyPassword(currentPassword, user.passwordHash)) {
+  if (!verifyClientPassword(currentPassword, user.passwordHash)) {
     return NextResponse.json({ error: "Current password is incorrect" }, { status: 403 });
   }
 
-  const { hashPassword } = await import("@/lib/auth");
-  const newHash = hashPassword(newPassword);
-  await db.update(clientUsers).set({ passwordHash: newHash }).where(eq(clientUsers.id, id));
+  const newHash = hashClientPassword(newPassword);
+  await db.update(clientUsers).set({ passwordHash: newHash }).where(eq(clientUsers.id, session.userId));
 
   return NextResponse.json({ ok: true });
 }

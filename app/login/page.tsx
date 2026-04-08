@@ -33,7 +33,7 @@ export default function LoginPage() {
       if (data.role === "admin") {
         router.push("/admin");
       } else {
-        router.push("/");
+        router.push("/dashboard");
       }
     } catch {
       setError("Something went wrong. Please try again.");
@@ -44,7 +44,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#070E1A]">
       <div className="w-full max-w-sm mx-4">
-        {/* Logo / Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#4A90D9] mb-4">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -57,7 +56,6 @@ export default function LoginPage() {
           <p className="text-[#8899A6] text-sm mt-1">AI Receptionist</p>
         </div>
 
-        {/* Login Form */}
         <form onSubmit={handleLogin} className="bg-[#0D1B2A] rounded-2xl p-6 shadow-xl border border-[#1E3A5F]">
           <div className="space-y-4">
             <div>
@@ -84,7 +82,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="********"
                 required
                 className="w-full px-4 py-3 rounded-xl bg-[#070E1A] border border-[#1E3A5F] text-[#F0F4F8] placeholder-[#5B8DB8] text-sm focus:outline-none focus:border-[#4A90D9] transition-colors"
               />
@@ -101,12 +99,11 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full py-3 px-4 rounded-xl bg-[#4A90D9] hover:bg-[#3a7bc4] disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-sm transition-colors"
             >
-              {loading ? "Signing in…" : "Sign In"}
+              {loading ? "Signing in..." : "Sign In"}
             </button>
           </div>
         </form>
 
-        {/* Footer */}
         <p className="text-center text-[#5B8DB8] text-xs mt-6">
           Aura Office Assistant
         </p>

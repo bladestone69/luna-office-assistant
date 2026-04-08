@@ -72,10 +72,10 @@ export default function AdminSidebar({ sections, active, onSelect }: AdminSideba
 
       <div className={styles.footer}>
         <div className={styles.userRow}>
-          <div className={styles.userAvatar}>SM</div>
+          <div className={styles.userAvatar}>AO</div>
           <div className={styles.userInfo}>
-            <p className={styles.userName}>Sarah M.</p>
-            <p className={styles.userEmail}>sarah@company.co.za</p>
+            <p className={styles.userName}>Aura Admin</p>
+            <p className={styles.userEmail}>Admin workspace</p>
           </div>
         </div>
       </div>

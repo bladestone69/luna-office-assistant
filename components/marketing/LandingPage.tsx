@@ -1,0 +1,1167 @@
+"use client";
+
+import { useEffect } from "react";
+
+export default function LandingPage() {
+  useEffect(() => {
+    // Stars
+    const starsContainer = document.getElementById('stars');
+    if (starsContainer && starsContainer.children.length === 0) {
+      for (let i = 0; i < 100; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = Math.random() * 3 + 's';
+        const size = Math.random() * 2 + 0.5;
+        star.style.width = size + 'px';
+        star.style.height = size + 'px';
+        starsContainer.appendChild(star);
+      }
+    }
+
+    // Scroll navbar
+    const handleScroll = () => {
+      const nav = document.getElementById('navbar') as HTMLElement | null;
+      if (nav) {
+        if (window.scrollY > 60) {
+          nav.style.background = 'rgba(7,14,27,0.97)';
+          nav.style.borderBottomColor = 'rgba(74,144,217,0.2)';
+        } else {
+          nav.style.background = 'rgba(7,14,27,0.92)';
+          nav.style.borderBottomColor = 'rgba(74,144,217,0.1)';
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', (e) => {
+        e.preventDefault();
+        const href = (e.currentTarget as HTMLElement).getAttribute('href');
+        if (href) {
+          const target = document.querySelector(href);
+          if (target) {
+            const offset = 80;
+            const top = (target as HTMLElement).getBoundingClientRect().top + window.pageYOffset - offset;
+            window.scrollTo({ top, behavior: 'smooth' });
+          }
+        }
+      });
+    });
+
+    // FAQ
+    document.querySelectorAll('.faq-q').forEach(button => {
+      button.addEventListener('click', () => {
+        const item = button.parentElement;
+        const wasOpen = item?.classList.contains('open');
+        document.querySelectorAll('.faq-item').forEach(f => f.classList.remove('open'));
+        if (!wasOpen) item?.classList.add('open');
+      });
+    });
+
+    // Form submission
+    const form = document.getElementById('preRegisterForm') as HTMLFormElement | null;
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(form);
+        const body = Object.fromEntries(formData.entries()) as Record<string, string>;
+        const emailBody = `New Pre-Registration${body.products ? ` — ${body.products}` : ''}
+
+Name: ${body.firstName} ${body.lastName}
+Business: ${body.business}
+Email: ${body.email}
+Phone: ${body.phone}
+Industry: ${body.industry}${body.message ? `\n\nMessage: ${body.message}` : ''}`;
+        window.location.href = `mailto:aoraaiclaw@gmail.com?subject=Pre-Registration — ${body.business}&body=${encodeURIComponent(emailBody)}`;
+        const fields = document.getElementById('formFields');
+        const success = document.getElementById('formSuccess');
+        fields?.classList.add('hidden');
+        success?.classList.add('show');
+      });
+    }
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  return (
+    <>
+      <div className="bg-grid"></div>
+      <div className="orb orb1"></div>
+      <div className="orb orb2"></div>
+      <div className="orb orb3"></div>
+      <div className="stars" id="stars"></div>
+
+      <style>{`
+        :root {
+          --navy: #070E1A;
+          --navy-mid: #0D1627;
+          --navy-light: #162040;
+          --blue: #4A90D9;
+          --blue-bright: #60A5FA;
+          --blue-glow: rgba(74,144,217,0.3);
+          --purple: #9B59B6;
+          --cyan: #22D3EE;
+          --white: #FFFFFF;
+          --gray-100: #F1F5F9;
+          --gray-300: #CBD5E1;
+          --gray-500: #64748B;
+          --gray-700: #334155;
+          --text-primary: #E2E8F0;
+          --text-secondary: #94A3B8;
+          --accent-green: #10B981;
+          --accent-red: #EF4444;
+          --accent-amber: #F59E0B;
+          --accent-orange: #E67E22;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+          font-family: 'Inter', sans-serif;
+          background: var(--navy);
+          color: var(--text-primary);
+          line-height: 1.7;
+          overflow-x: hidden;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--navy); }
+        ::-webkit-scrollbar-thumb { background: var(--blue); border-radius: 3px; }
+        .bg-grid {
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background-image:
+            linear-gradient(rgba(74,144,217,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(74,144,217,0.04) 1px, transparent 1px);
+          background-size: 60px 60px;
+          z-index: 0; pointer-events: none;
+        }
+        .orb {
+          position: fixed; border-radius: 50%;
+          filter: blur(120px); opacity: 0.12; z-index: 0; pointer-events: none;
+          animation: orbFloat 20s ease-in-out infinite;
+        }
+        .orb1 { width: 700px; height: 700px; background: var(--blue); top: -250px; right: -150px; }
+        .orb2 { width: 500px; height: 500px; background: var(--purple); bottom: -150px; left: -150px; animation-delay: -7s; }
+        .orb3 { width: 350px; height: 350px; background: var(--cyan); top: 40%; left: 55%; animation-delay: -14s; opacity: 0.07; }
+        @keyframes orbFloat {
+          0%,100% { transform: translate(0,0) scale(1); }
+          25% { transform: translate(30px,-40px) scale(1.05); }
+          50% { transform: translate(-20px,20px) scale(0.95); }
+          75% { transform: translate(40px,30px) scale(1.02); }
+        }
+        .stars { position: fixed; top: 0; left: 0; right: 0; height: 100%; z-index: 0; pointer-events: none; }
+        .star {
+          position: absolute; width: 2px; height: 2px;
+          background: white; border-radius: 50%;
+          animation: twinkle 3s ease-in-out infinite;
+        }
+        @keyframes twinkle { 0%,100% { opacity: 0.15; } 50% { opacity: 0.65; } }
+        .nav {
+          position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+          background: rgba(7,14,27,0.92);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border-bottom: 1px solid rgba(74,144,217,0.1);
+          padding: 14px 48px;
+          display: flex; justify-content: space-between; align-items: center;
+          transition: all 0.3s;
+        }
+        .nav-brand {
+          font-size: 14px; font-weight: 800; letter-spacing: 2px;
+          color: var(--blue); text-transform: uppercase; text-decoration: none;
+          display: flex; align-items: center; gap: 8px;
+        }
+        .nav-brand svg { width: 24px; height: 24px; }
+        .nav-links { display: flex; gap: 6px; align-items: center; }
+        .nav-links a {
+          color: var(--gray-500); text-decoration: none;
+          font-size: 13px; font-weight: 500;
+          padding: 7px 14px; border-radius: 8px; transition: all 0.2s;
+        }
+        .nav-links a:hover { background: rgba(74,144,217,0.1); color: var(--blue-bright); }
+        .btn-nav {
+          background: linear-gradient(135deg, var(--blue), var(--purple)) !important;
+          color: white !important; font-weight: 600 !important;
+          padding: 8px 20px !important; border-radius: 10px !important;
+          box-shadow: 0 4px 16px rgba(74,144,217,0.3);
+          transition: all 0.3s !important;
+        }
+        .btn-nav:hover { transform: translateY(-1px) !important; box-shadow: 0 6px 20px rgba(74,144,217,0.45) !important; }
+        .hero {
+          min-height: 100vh;
+          display: flex; flex-direction: column;
+          justify-content: center; align-items: center;
+          text-align: center;
+          padding: 120px 40px 80px;
+          position: relative; z-index: 1;
+        }
+        .hero-badge {
+          display: inline-flex; align-items: center; gap: 8px;
+          background: rgba(74,144,217,0.12); border: 1px solid rgba(74,144,217,0.25);
+          border-radius: 100px; padding: 7px 18px;
+          font-size: 12px; font-weight: 600; color: var(--blue-bright);
+          letter-spacing: 1px; text-transform: uppercase; margin-bottom: 32px;
+          animation: fadeUp 1s ease 0.1s both;
+        }
+        .badge-dot {
+          width: 6px; height: 6px; background: var(--accent-green);
+          border-radius: 50%; animation: blinkDot 2s infinite;
+        }
+        @keyframes blinkDot { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(28px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .hero-eyebrow {
+          font-size: 12px; font-weight: 700; letter-spacing: 5px;
+          text-transform: uppercase; color: var(--gray-500);
+          margin-bottom: 20px; animation: fadeUp 1s ease 0.2s both;
+        }
+        .hero-title {
+          font-size: clamp(48px, 9vw, 108px);
+          font-weight: 900; letter-spacing: -3px; line-height: 0.9;
+          margin-bottom: 28px; animation: fadeUp 1s ease 0.3s both;
+        }
+        .hero-title .line1 {
+          display: block;
+          background: linear-gradient(90deg, var(--white) 0%, var(--blue-bright) 35%, var(--purple) 70%, var(--cyan) 100%);
+          background-size: 200% auto;
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: shimmerHero 5s linear infinite;
+        }
+        .hero-title .line2 { display: block; color: var(--white); }
+        .hero-title .line3 { display: block; color: var(--gray-500); font-size: 0.5em; letter-spacing: -1px; font-weight: 700; }
+        @keyframes shimmerHero {
+          0% { background-position: 0% center; }
+          100% { background-position: 200% center; }
+        }
+        .hero-subtitle {
+          font-size: clamp(16px, 2.5vw, 20px);
+          color: var(--text-secondary); max-width: 620px;
+          line-height: 1.7; margin-bottom: 12px;
+          animation: fadeUp 1s ease 0.45s both;
+        }
+        .hero-tagline {
+          font-size: 15px; color: var(--gray-500);
+          max-width: 500px; line-height: 1.6; margin-bottom: 48px;
+          animation: fadeUp 1s ease 0.55s both;
+        }
+        .hero-cta-group {
+          display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
+          animation: fadeUp 1s ease 0.65s both; margin-bottom: 72px;
+        }
+        .btn-primary {
+          background: linear-gradient(135deg, var(--blue), var(--purple));
+          color: white; padding: 16px 36px; border-radius: 12px;
+          font-size: 15px; font-weight: 700; border: none; cursor: pointer;
+          transition: all 0.3s; text-decoration: none;
+          display: inline-flex; align-items: center; gap: 8px;
+          box-shadow: 0 4px 24px rgba(74,144,217,0.35);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(74,144,217,0.5); }
+        .btn-secondary {
+          background: rgba(255,255,255,0.05);
+          color: var(--gray-300); padding: 16px 36px; border-radius: 12px;
+          font-size: 15px; font-weight: 600; border: 1px solid rgba(255,255,255,0.12);
+          cursor: pointer; transition: all 0.3s; text-decoration: none;
+          display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.1); color: var(--white); transform: translateY(-2px); }
+        .hero-proof {
+          display: flex; gap: 32px; justify-content: center; flex-wrap: wrap;
+          animation: fadeUp 1s ease 0.8s both;
+        }
+        .proof-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gray-500); }
+        .proof-item .check { color: var(--accent-green); font-weight: 700; }
+        .proof-bar {
+          background: rgba(74,144,217,0.06);
+          border-top: 1px solid rgba(74,144,217,0.1);
+          border-bottom: 1px solid rgba(74,144,217,0.1);
+          padding: 28px 48px;
+          display: flex; gap: 48px; justify-content: center; flex-wrap: wrap;
+          position: relative; z-index: 1;
+        }
+        .proof-stat { text-align: center; }
+        .proof-stat-num { font-size: 28px; font-weight: 900; color: var(--white); letter-spacing: -1px; }
+        .proof-stat-label { font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+        .proof-bar-sep { width: 1px; background: rgba(74,144,217,0.2); align-self: stretch; }
+        .section {
+          padding: 100px 48px;
+          max-width: 1200px; margin: 0 auto;
+          position: relative; z-index: 1;
+        }
+        .section-eyebrow {
+          font-size: 11px; font-weight: 700; letter-spacing: 3px;
+          text-transform: uppercase; color: var(--blue); margin-bottom: 12px;
+        }
+        .section-title {
+          font-size: clamp(30px, 5vw, 50px); font-weight: 800;
+          color: var(--white); letter-spacing: -1.5px; line-height: 1.1;
+          margin-bottom: 16px;
+        }
+        .section-subtitle {
+          font-size: 17px; color: var(--text-secondary);
+          max-width: 660px; line-height: 1.75; margin-bottom: 56px;
+        }
+        .problem-section {
+          background: rgba(0,0,0,0.2);
+          border-top: 1px solid rgba(74,144,217,0.08);
+          border-bottom: 1px solid rgba(74,144,217,0.08);
+          padding: 100px 48px;
+        }
+        .problem-grid {
+          max-width: 1200px; margin: 0 auto;
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+        }
+        .problem-card {
+          background: rgba(239,68,68,0.05);
+          border: 1px solid rgba(239,68,68,0.15);
+          border-radius: 20px; padding: 32px;
+          transition: all 0.3s;
+        }
+        .problem-card:hover { border-color: rgba(239,68,68,0.35); transform: translateY(-4px); }
+        .problem-icon { font-size: 36px; margin-bottom: 16px; }
+        .problem-card h3 { font-size: 18px; font-weight: 700; color: var(--white); margin-bottom: 10px; }
+        .problem-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.65; }
+        .products-list { display: flex; flex-direction: column; gap: 0; }
+        .product-row {
+          display: grid; grid-template-columns: 1fr 1fr;
+          gap: 0; border: 1px solid rgba(74,144,217,0.08);
+          border-radius: 24px; overflow: hidden;
+          margin-bottom: 24px;
+          background: rgba(255,255,255,0.02);
+          transition: all 0.3s;
+        }
+        .product-row:hover {
+          border-color: rgba(74,144,217,0.25);
+          box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+          transform: translateY(-2px);
+        }
+        .product-info { padding: 48px; }
+        .product-number {
+          font-size: 11px; font-weight: 700; letter-spacing: 2px;
+          text-transform: uppercase; margin-bottom: 12px; opacity: 0.6;
+        }
+        .product-logo {
+          width: 64px; height: 64px; border-radius: 16px;
+          display: flex; align-items: center; justify-content: center;
+          margin-bottom: 20px;
+        }
+        .product-logo svg { width: 36px; height: 36px; }
+        .product-name {
+          font-size: 32px; font-weight: 900; color: var(--white);
+          margin-bottom: 8px; letter-spacing: -1px;
+        }
+        .product-tagline { font-size: 15px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; }
+        .product-features { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+        .product-features li {
+          font-size: 13px; color: var(--text-secondary);
+          padding-left: 20px; position: relative;
+        }
+        .product-features li::before {
+          content: '✓'; position: absolute; left: 0; color: var(--accent-green); font-weight: 700;
+        }
+        .product-pricing { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .price-chip {
+          background: rgba(74,144,217,0.1); border: 1px solid rgba(74,144,217,0.2);
+          border-radius: 10px; padding: 8px 16px;
+        }
+        .price-chip .pc-amount { font-size: 18px; font-weight: 800; color: var(--white); }
+        .price-chip .pc-label { font-size: 11px; color: var(--gray-500); }
+        .price-chip .pc-desc { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+        .product-cta {
+          display: inline-flex; align-items: center; gap: 8px;
+          font-size: 14px; font-weight: 700; color: var(--blue-bright);
+          text-decoration: none; transition: all 0.2s;
+        }
+        .product-cta:hover { gap: 12px; color: var(--white); }
+        .product-visual {
+          display: flex; flex-direction: column;
+          justify-content: center; align-items: center;
+          padding: 48px; position: relative; overflow: hidden;
+        }
+        .product-visual-icon {
+          width: 120px; height: 120px; border-radius: 28px;
+          display: flex; align-items: center; justify-content: center;
+          margin-bottom: 16px; position: relative; z-index: 1;
+        }
+        .product-visual-icon svg { width: 64px; height: 64px; }
+        .product-visual-label { font-size: 13px; color: var(--gray-500); text-align: center; position: relative; z-index: 1; }
+        .row-alt .product-info { order: 2; }
+        .row-alt .product-visual { order: 1; border-right: 1px solid rgba(74,144,217,0.08); }
+        .steps-row {
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+          margin: 40px 0; position: relative;
+        }
+        .steps-row::before {
+          content: ''; position: absolute;
+          top: 48px; left: 80px; right: 80px; height: 2px;
+          background: linear-gradient(90deg, var(--blue), var(--purple), var(--cyan));
+          z-index: 0;
+        }
+        .step-card {
+          background: rgba(74,144,217,0.04);
+          border: 1px solid rgba(74,144,217,0.1);
+          border-radius: 20px; padding: 36px 28px;
+          text-align: center; position: relative; z-index: 1;
+          transition: all 0.3s;
+        }
+        .step-card:hover {
+          border-color: rgba(74,144,217,0.3);
+          transform: translateY(-4px);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+        .step-num {
+          width: 52px; height: 52px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 20px; font-weight: 900; color: var(--navy);
+          margin: 0 auto 20px;
+          box-shadow: 0 0 24px rgba(74,144,217,0.4);
+        }
+        .step-card:nth-child(1) .step-num { background: linear-gradient(135deg, var(--blue), var(--purple)); }
+        .step-card:nth-child(2) .step-num { background: linear-gradient(135deg, var(--purple), var(--blue)); }
+        .step-card:nth-child(3) .step-num { background: linear-gradient(135deg, var(--accent-green), var(--blue)); }
+        .step-title { font-size: 18px; font-weight: 700; color: var(--white); margin-bottom: 8px; }
+        .step-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.65; }
+        .step-time { font-size: 12px; color: var(--blue); font-weight: 600; margin-top: 10px; }
+        .register-section {
+          background: linear-gradient(135deg, rgba(74,144,217,0.08), rgba(155,89,182,0.05));
+          border: 1px solid rgba(74,144,217,0.15);
+          border-radius: 28px;
+          padding: 60px;
+          margin: 40px 0;
+          position: relative;
+          overflow: hidden;
+        }
+        .register-section::before {
+          content: '';
+          position: absolute; top: -1px; left: -1px; right: -1px; height: 3px;
+          background: linear-gradient(90deg, var(--blue), var(--purple), var(--cyan));
+          border-radius: 28px 28px 0 0;
+        }
+        .register-header { text-align: center; margin-bottom: 40px; }
+        .register-header h3 { font-size: 28px; font-weight: 800; color: var(--white); margin-bottom: 8px; }
+        .register-header p { font-size: 15px; color: var(--text-secondary); }
+        .register-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 32px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group.full { grid-column: 1 / -1; }
+        .form-group label { font-size: 12px; font-weight: 600; color: var(--gray-300); text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input, .form-group select, .form-group textarea {
+          background: rgba(0,0,0,0.3);
+          border: 1px solid rgba(74,144,217,0.2);
+          border-radius: 10px;
+          padding: 13px 16px;
+          font-size: 14px;
+          color: var(--white);
+          font-family: 'Inter', sans-serif;
+          transition: border-color 0.2s;
+          outline: none;
+        }
+        .form-group input::placeholder, .form-group textarea::placeholder { color: var(--gray-700); }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+          border-color: var(--blue);
+          box-shadow: 0 0 0 3px rgba(74,144,217,0.1);
+        }
+        .form-group select {
+          appearance: none; cursor: pointer;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 14px center;
+          padding-right: 36px;
+        }
+        .form-group select option { background: var(--navy-mid); color: var(--white); }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .register-submit { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 8px; }
+        .register-submit .btn-primary { width: 100%; justify-content: center; font-size: 16px; padding: 16px; }
+        .register-submit p { font-size: 12px; color: var(--gray-500); }
+        .form-success { display: none; text-align: center; padding: 40px; }
+        .form-success.show { display: block; }
+        .form-success-icon { font-size: 56px; margin-bottom: 16px; }
+        .form-success h3 { font-size: 22px; font-weight: 800; color: var(--white); margin-bottom: 8px; }
+        .form-success p { font-size: 14px; color: var(--text-secondary); }
+        .form-fields { transition: opacity 0.3s; }
+        .form-fields.hidden { display: none; }
+        .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin: 40px 0; }
+        .pricing-card {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 24px; padding: 36px 28px;
+          text-align: center; position: relative; overflow: hidden;
+          transition: all 0.3s;
+        }
+        .pricing-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,0.3); }
+        .pricing-card.popular { border-color: rgba(74,144,217,0.45); background: rgba(74,144,217,0.07); }
+        .pricing-card.popular::before {
+          content: 'Best Value';
+          position: absolute; top: 20px; right: -32px;
+          background: linear-gradient(135deg, var(--blue), var(--purple));
+          font-size: 9px; font-weight: 800; letter-spacing: 1px;
+          padding: 4px 48px; transform: rotate(45deg);
+          color: white;
+        }
+        .pricing-logo {
+          width: 56px; height: 56px; border-radius: 14px;
+          display: flex; align-items: center; justify-content: center;
+          margin: 0 auto 16px;
+        }
+        .pricing-logo svg { width: 30px; height: 30px; }
+        .pricing-name { font-size: 20px; font-weight: 800; color: var(--white); margin-bottom: 4px; }
+        .pricing-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 20px; }
+        .pricing-amount {
+          font-size: 44px; font-weight: 900; color: var(--white);
+          letter-spacing: -2px; line-height: 1; margin-bottom: 4px;
+        }
+        .pricing-period { font-size: 13px; color: var(--gray-500); margin-bottom: 24px; }
+        .pricing-features { list-style: none; text-align: left; display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+        .pricing-features li { font-size: 13px; color: var(--text-secondary); padding-left: 22px; position: relative; }
+        .pricing-features li::before {
+          content: '✓'; position: absolute; left: 0; color: var(--accent-green); font-weight: 700; font-size: 12px; top: 2px;
+        }
+        .pricing-card .btn-primary { width: 100%; justify-content: center; font-size: 14px; padding: 14px; }
+        .pricing-note { text-align: center; font-size: 12px; color: var(--gray-500); margin-top: 16px; }
+        .contact-section {
+          background: rgba(0,0,0,0.2);
+          border-top: 1px solid rgba(74,144,217,0.08);
+          border-bottom: 1px solid rgba(74,144,217,0.08);
+          padding: 100px 48px;
+        }
+        .contact-grid { max-width: 1200px; margin: 40px auto 0; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+        .contact-card {
+          background: rgba(74,144,217,0.04);
+          border: 1px solid rgba(74,144,217,0.1);
+          border-radius: 20px; padding: 36px;
+          transition: all 0.3s;
+        }
+        .contact-card:hover { border-color: rgba(74,144,217,0.3); }
+        .contact-card-icon {
+          width: 52px; height: 52px; border-radius: 14px;
+          display: flex; align-items: center; justify-content: center;
+          margin-bottom: 16px;
+        }
+        .contact-card-icon svg { width: 26px; height: 26px; }
+        .contact-card h3 { font-size: 18px; font-weight: 700; color: var(--white); margin-bottom: 8px; }
+        .contact-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.65; margin-bottom: 16px; }
+        .contact-card a {
+          display: inline-flex; align-items: center; gap: 6px;
+          font-size: 14px; font-weight: 600; color: var(--blue-bright);
+          text-decoration: none; transition: gap 0.2s;
+        }
+        .contact-card a:hover { gap: 10px; color: var(--white); }
+        .faq-list { display: flex; flex-direction: column; gap: 0; margin: 40px 0; }
+        .faq-item { border-bottom: 1px solid rgba(74,144,217,0.08); overflow: hidden; }
+        .faq-q {
+          width: 100%; background: none; border: none;
+          text-align: left; padding: 22px 0;
+          font-size: 16px; font-weight: 600; color: var(--white);
+          cursor: pointer; display: flex; justify-content: space-between;
+          align-items: center; font-family: 'Inter', sans-serif;
+          transition: color 0.2s;
+        }
+        .faq-q:hover { color: var(--blue-bright); }
+        .faq-q .faq-icon { font-size: 18px; color: var(--blue); transition: transform 0.3s; flex-shrink: 0; }
+        .faq-item.open .faq-icon { transform: rotate(45deg); }
+        .faq-a {
+          max-height: 0; overflow: hidden;
+          transition: max-height 0.4s ease, padding 0.4s ease;
+          font-size: 14px; color: var(--text-secondary); line-height: 1.7;
+          padding-bottom: 0;
+        }
+        .faq-item.open .faq-a { max-height: 300px; padding-bottom: 20px; }
+        .final-cta { padding: 120px 48px; text-align: center; position: relative; z-index: 1; }
+        .final-cta-title {
+          font-size: clamp(36px, 6vw, 62px); font-weight: 900;
+          letter-spacing: -2px; line-height: 1.05; margin-bottom: 20px;
+          background: linear-gradient(90deg, var(--white), var(--blue-bright), var(--purple));
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .final-cta-sub { font-size: 18px; color: var(--text-secondary); max-width: 520px; margin: 0 auto 16px; line-height: 1.7; }
+        .final-cta-sub2 { font-size: 14px; color: var(--gray-500); margin-bottom: 48px; }
+        .final-cta-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 48px; }
+        footer { background: var(--navy-mid); border-top: 1px solid rgba(74,144,217,0.1); padding: 60px 48px 32px; position: relative; z-index: 1; }
+        .footer-top { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px; margin-bottom: 48px; }
+        .footer-brand p { font-size: 13px; color: var(--gray-500); line-height: 1.7; margin-top: 12px; max-width: 300px; }
+        .footer-col h4 { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--white); margin-bottom: 16px; }
+        .footer-col a { display: block; font-size: 13px; color: var(--gray-500); text-decoration: none; margin-bottom: 10px; transition: color 0.2s; }
+        .footer-col a:hover { color: var(--blue-bright); }
+        .footer-bottom {
+          border-top: 1px solid rgba(74,144,217,0.08);
+          padding-top: 24px;
+          display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+          gap: 12px;
+        }
+        .footer-copy { font-size: 12px; color: var(--gray-500); }
+        .footer-legal { display: flex; gap: 20px; }
+        .footer-legal a { font-size: 12px; color: var(--gray-500); text-decoration: none; }
+        .footer-legal a:hover { color: var(--blue); }
+        @media (max-width: 1024px) {
+          .product-row { grid-template-columns: 1fr; }
+          .row-alt .product-info { order: 1; }
+          .row-alt .product-visual { order: 0; border-right: none; border-bottom: 1px solid rgba(74,144,217,0.08); }
+          .contact-grid { grid-template-columns: 1fr; }
+          .register-grid { grid-template-columns: 1fr; }
+          .footer-top { grid-template-columns: 1fr 1fr; }
+          .steps-row { grid-template-columns: 1fr; }
+          .steps-row::before { display: none; }
+        }
+        @media (max-width: 768px) {
+          .nav { padding: 12px 20px; }
+          .section { padding: 60px 20px; }
+          .hero { padding: 100px 20px 60px; }
+          .problem-section { padding: 60px 20px; }
+          .problem-grid { grid-template-columns: 1fr; }
+          .pricing-grid { grid-template-columns: 1fr; }
+          .final-cta { padding: 80px 20px; }
+          .footer-top { grid-template-columns: 1fr; gap: 32px; }
+          .footer-bottom { flex-direction: column; align-items: flex-start; }
+          footer { padding: 40px 20px 24px; }
+          .proof-bar { padding: 24px 20px; gap: 24px; }
+          .proof-bar-sep { display: none; }
+          .product-info { padding: 28px; }
+          .register-section { padding: 32px 24px; }
+          .contact-section { padding: 60px 20px; }
+        }
+      `}</style>
+
+      {/* NAV */}
+      <nav className="nav" id="navbar">
+        <a href="#" className="nav-brand">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="32" height="32" rx="8" fill="url(#navGrad)"/>
+            <path d="M16 6L8 12V20L16 26L24 20V12L16 6Z" fill="white" fillOpacity="0.9"/>
+            <circle cx="16" cy="16" r="4" fill="url(#navGrad2)"/>
+            <defs>
+              <linearGradient id="navGrad" x1="0" y1="0" x2="32" y2="32">
+                <stop offset="0%" stopColor="#4A90D9"/>
+                <stop offset="100%" stopColor="#9B59B6"/>
+              </linearGradient>
+              <linearGradient id="navGrad2" x1="12" y1="12" x2="20" y2="20">
+                <stop offset="0%" stopColor="#60A5FA"/>
+                <stop offset="100%" stopColor="#9B59B6"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          SA AI Office
+        </a>
+        <div className="nav-links">
+          <a href="#products">Products</a>
+          <a href="#how-it-works">How It Works</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+          <a href="https://www.auraoffice.xyz/login" className="btn-nav" style={{ marginRight: 6 }}>Login</a>
+          <a href="#register" className="btn-nav">Pre-Register →</a>
+        </div>
+      </nav>
+
+      {/* HERO */}
+      <section className="hero" id="hero">
+        <div className="hero-badge">
+          <span className="badge-dot"></span>
+          Early Access — Limited Spots Available
+        </div>
+        <div className="hero-eyebrow">Your Office. Run by AI.</div>
+        <h1 className="hero-title">
+          <span className="line1">Never Miss</span>
+          <span className="line2">Another Call.</span>
+          <span className="line3">Never Chase a Payment Again.</span>
+        </h1>
+        <p className="hero-subtitle">
+          SA AI Office puts five AI tools in your business — answering calls, managing WhatsApp,
+          handling HR compliance, chasing debt, and coordinating field teams.
+          From R199/month. Built for South African businesses.
+        </p>
+        <p className="hero-tagline">Powered by WhatsApp. Available in English. POPIA compliant.</p>
+        <div className="hero-cta-group">
+          <a href="#register" className="btn-primary">Pre-Register Now — It&apos;s Free →</a>
+          <a href="#products" className="btn-secondary">See All Products</a>
+        </div>
+        <div className="hero-proof">
+          <div className="proof-item"><span className="check">✓</span> No credit card required</div>
+          <div className="proof-item"><span className="check">✓</span> Early access pricing</div>
+          <div className="proof-item"><span className="check">✓</span> Cancel anytime</div>
+          <div className="proof-item"><span className="check">✓</span> POPIA compliant</div>
+        </div>
+      </section>
+
+      {/* PROOF BAR */}
+      <div className="proof-bar">
+        <div className="proof-stat"><div className="proof-stat-num">2.4M</div><div className="proof-stat-label">SA SMEs</div></div>
+        <div className="proof-bar-sep"></div>
+        <div className="proof-stat"><div className="proof-stat-num">R180B</div><div className="proof-stat-label">Lost to missed calls annually</div></div>
+        <div className="proof-bar-sep"></div>
+        <div className="proof-stat"><div className="proof-stat-num">93%</div><div className="proof-stat-label">SA users on WhatsApp</div></div>
+        <div className="proof-bar-sep"></div>
+        <div className="proof-stat"><div className="proof-stat-num">R199</div><div className="proof-stat-label">Per month — less than a PA&apos;s hour</div></div>
+      </div>
+
+      {/* PROBLEM */}
+      <section className="problem-section">
+        <div className="problem-grid">
+          <div className="problem-card">
+            <div className="problem-icon">📞</div>
+            <h3>You lose calls every day.</h3>
+            <p>Your receptionist is on another call. A client hangs up. You call back — no answer. That was a R5,000 booking. It happens three times a week. That&apos;s R60,000 in lost revenue every year.</p>
+          </div>
+          <div className="problem-card">
+            <div className="problem-icon">💸</div>
+            <h3>Your debtors are killing your cash flow.</h3>
+            <p>You invoiced R180,000. Your client hasn&apos;t paid in 60 days. You hate chasing money — it feels confrontational. So you wait. And wait. Meanwhile your rent is due.</p>
+          </div>
+          <div className="problem-card">
+            <div className="problem-icon">😓</div>
+            <h3>Your team is drowning in admin.</h3>
+            <p>Your staff are brilliant at their jobs. But they spend 3 hours a day on WhatsApp replies, scheduling, and chasing paperwork. That&apos;s not why you hired them.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* PRODUCTS */}
+      <section className="section" id="products">
+        <div className="section-eyebrow">The Products</div>
+        <h2 className="section-title">Five AI Tools. One Platform.</h2>
+        <div className="section-subtitle">Each one solves a real, daily pain point. Use one or use them all. Every one of them works on WhatsApp.</div>
+        <div className="products-list">
+          {/* Luna Office */}
+          <div className="product-row">
+            <div className="product-info">
+              <div className="product-number" style={{ color: "var(--blue)" }}>Product 01</div>
+              <div className="product-logo" style={{ background: "linear-gradient(135deg,#4A90D9,#9B59B6)" }}>
+                <svg viewBox="0 0 36 36" fill="none"><path d="M18 3C10.268 3 4 9.268 4 17C4 24.732 10.268 31 18 31C25.732 31 32 24.732 32 17C32 9.268 25.732 3 18 3Z" fill="white" fillOpacity="0.2"/><path d="M18 5C11.373 5 6 10.373 6 17C6 23.627 11.373 29 18 29C24.627 29 30 23.627 30 17C30 10.373 24.627 5 18 5Z" stroke="white" strokeWidth="1.5" fill="none"/><path d="M12 17.5C12 14.46 14.46 12 17.5 12H19C22.314 12 25 14.686 25 18V19C25 22.314 22.314 25 19 25H17.5C14.46 25 12 22.54 12 19.5V17.5Z" fill="white" fillOpacity="0.6"/><circle cx="14" cy="18" r="1.5" fill="#070E1A"/><circle cx="22" cy="18" r="1.5" fill="#070E1A"/><path d="M16 21C16 21 17.5 22.5 20 21" stroke="#070E1A" strokeWidth="1.2" strokeLinecap="round"/></svg>
+              </div>
+              <div className="product-name">Luna Office</div>
+              <p className="product-tagline">An AI receptionist that answers your phone, books appointments, and routes calls — 24/7. Never misses a call. Never forgets a follow-up.</p>
+              <ul className="product-features">
+                <li>AI voice call answering — never puts a caller on hold</li>
+                <li>Books appointments and sends reminders automatically</li>
+                <li>Works after hours, weekends, and during load shedding</li>
+                <li>Routes urgent calls straight to your mobile</li>
+                <li>WhatsApp integration for client convenience</li>
+              </ul>
+              <div className="product-pricing">
+                <div className="price-chip"><div className="pc-amount">R499</div><div className="pc-label">/month</div><div className="pc-desc">Starter · 100 calls</div></div>
+                <div className="price-chip"><div className="pc-amount">R799</div><div className="pc-label">/month</div><div className="pc-desc">Professional · Unlimited calls</div></div>
+              </div>
+              <a href="#register" className="product-cta">Pre-Register Free →</a>
+            </div>
+            <div className="product-visual" style={{ background: "linear-gradient(135deg,rgba(74,144,217,0.1),rgba(155,89,182,0.05))" }}>
+              <div className="product-visual-icon" style={{ background: "linear-gradient(135deg,rgba(74,144,217,0.15),rgba(155,89,182,0.1))", border: "1px solid rgba(74,144,217,0.2)" }}>
+                <svg viewBox="0 0 64 64" fill="none"><path d="M32 8C19.85 8 10 17.85 10 30C10 42.15 19.85 52 32 52C44.15 52 54 42.15 54 30C54 17.85 44.15 8 32 8Z" fill="#4A90D9" fillOpacity="0.2"/><path d="M32 12C22.06 12 14 20.06 14 30C14 39.94 22.06 48 32 48C41.94 48 50 39.94 50 30C50 20.06 41.94 12 32 12Z" stroke="#4A90D9" strokeWidth="2" fill="none"/><path d="M23 30C23 25.582 26.582 22 31 22H33C37.418 22 41 25.582 41 30V32C41 36.418 37.418 40 33 40H31C26.582 40 23 36.418 23 32V30Z" fill="#4A90D9" fillOpacity="0.6"/><circle cx="27" cy="30" r="2.5" fill="#070E1A"/><circle cx="37" cy="30" r="2.5" fill="#070E1A"/><path d="M29 36C29 36 31 38.5 35 36" stroke="#070E1A" strokeWidth="2" strokeLinecap="round"/></svg>
+              </div>
+              <div className="product-visual-label">AI Receptionist<br/><span style={{ fontSize: 11, color: "var(--gray-700)" }}>Never misses a call</span></div>
+            </div>
+          </div>
+
+          {/* Aira */}
+          <div className="product-row row-alt">
+            <div className="product-visual" style={{ background: "linear-gradient(135deg,rgba(155,89,182,0.1),rgba(74,144,217,0.05))" }}>
+              <div className="product-visual-icon" style={{ background: "linear-gradient(135deg,rgba(155,89,182,0.15),rgba(74,144,217,0.1))", border: "1px solid rgba(155,89,182,0.2)" }}>
+                <svg viewBox="0 0 64 64" fill="none"><rect x="10" y="14" width="44" height="32" rx="5" fill="#9B59B6" fillOpacity="0.2"/><rect x="10" y="14" width="44" height="32" rx="5" stroke="#9B59B6" strokeWidth="2" fill="none"/><circle cx="32" cy="30" r="8" stroke="#9B59B6" strokeWidth="2" fill="none"/><path d="M32 22V30L37 33" stroke="#9B59B6" strokeWidth="2" strokeLinecap="round"/><circle cx="32" cy="30" r="3" fill="#9B59B6"/><path d="M22 42L26 46H38L42 42" stroke="#9B59B6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+              <div className="product-visual-label">AI WhatsApp Manager<br/><span style={{ fontSize: 11, color: "var(--gray-700)" }}>Runs your WhatsApp for you</span></div>
+            </div>
+            <div className="product-info">
+              <div className="product-number" style={{ color: "var(--purple)" }}>Product 02</div>
+              <div className="product-logo" style={{ background: "linear-gradient(135deg,#9B59B6,#4A90D9)" }}>
+                <svg viewBox="0 0 36 36" fill="none"><rect x="4" y="8" width="28" height="20" rx="4" fill="white" fillOpacity="0.2"/><rect x="4" y="8" width="28" height="20" rx="4" stroke="white" strokeWidth="1.5" fill="none"/><circle cx="13" cy="18" r="3" stroke="white" strokeWidth="1.2" fill="none"/><path d="M18 15V21L22 18" stroke="white" strokeWidth="1.2" strokeLinecap="round"/></svg>
+              </div>
+              <div className="product-name">Aira</div>
+              <p className="product-tagline">Aira runs your entire WhatsApp business channel — taking orders, chasing invoices, sending reminders, and qualifying leads.</p>
+              <ul className="product-features">
+                <li>Handles orders, bookings, and enquiries automatically</li>
+                <li>Chases invoice payments via WhatsApp — firm but friendly</li>
+                <li>Sends appointment reminders so clients don&apos;t forget</li>
+                <li>Broadcasts updates to your entire client list in one click</li>
+                <li>Works perfectly during load shedding</li>
+              </ul>
+              <div className="product-pricing">
+                <div className="price-chip"><div className="pc-amount">R199</div><div className="pc-label">/month</div><div className="pc-desc">Solo · 50 conversations</div></div>
+                <div className="price-chip"><div className="pc-amount">R599</div><div className="pc-label">/month</div><div className="pc-desc">Business · Unlimited</div></div>
+              </div>
+              <a href="#register" className="product-cta">Pre-Register Free →</a>
+            </div>
+          </div>
+
+          {/* Lekgotla */}
+          <div className="product-row">
+            <div className="product-info">
+              <div className="product-number" style={{ color: "var(--accent-green)" }}>Product 03</div>
+              <div className="product-logo" style={{ background: "linear-gradient(135deg,#10B981,#4A90D9)" }}>
+                <svg viewBox="0 0 36 36" fill="none"><path d="M18 4L6 10V18C6 24.627 11.373 30.627 18 32C24.627 30.627 30 24.627 30 18V10L18 4Z" fill="white" fillOpacity="0.2"/><path d="M18 6L8 11V18C8 23.523 12.477 28.523 18 30C23.523 28.523 28 23.523 28 18V11L18 6Z" stroke="white" strokeWidth="1.5" fill="none"/><path d="M14 17L16.5 19.5L22 14" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+              <div className="product-name">Lekgotla</div>
+              <p className="product-tagline">Your AI HR and compliance officer. Lekgotla handles BCEA leave tracking, UIF submissions, POPIA data compliance, and employee onboarding.</p>
+              <ul className="product-features">
+                <li>Tracks annual leave, sick leave, and maternity leave (BCEA compliant)</li>
+                <li>Generates POPIA-compliant privacy policies and consent forms</li>
+                <li>Automates employee onboarding — contracts, IC forms, tax docs</li>
+                <li>Alerts you to UIF and SDL deadlines before they become problems</li>
+                <li>Answers employment law questions instantly</li>
+              </ul>
+              <div className="product-pricing">
+                <div className="price-chip"><div className="pc-amount">R399</div><div className="pc-label">/month</div><div className="pc-desc">Essentials · Up to 10 staff</div></div>
+                <div className="price-chip"><div className="pc-amount">R999</div><div className="pc-label">/month</div><div className="pc-desc">Professional · Up to 50 staff</div></div>
+              </div>
+              <a href="#register" className="product-cta">Pre-Register Free →</a>
+            </div>
+            <div className="product-visual" style={{ background: "linear-gradient(135deg,rgba(16,185,129,0.08),rgba(74,144,217,0.04))" }}>
+              <div className="product-visual-icon" style={{ background: "linear-gradient(135deg,rgba(16,185,129,0.15),rgba(74,144,217,0.1))", border: "1px solid rgba(16,185,129,0.2)" }}>
+                <svg viewBox="0 0 64 64" fill="none"><path d="M32 8L12 18V32C12 42.49 20.84 52.49 32 56C43.16 52.49 52 42.49 52 32V18L32 8Z" fill="#10B981" fillOpacity="0.15"/><path d="M32 12L16 20V32C16 40.84 23.16 49.16 32 52C40.84 49.16 48 40.84 48 32V20L32 12Z" stroke="#10B981" strokeWidth="2" fill="none"/><path d="M24 30L29 35L40 24" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+              <div className="product-visual-label">AI HR &amp; Compliance<br/><span style={{ fontSize: 11, color: "var(--gray-700)" }}>BCEA · POPIA · UIF</span></div>
+            </div>
+          </div>
+
+          {/* Vault */}
+          <div className="product-row row-alt">
+            <div className="product-visual" style={{ background: "linear-gradient(135deg,rgba(239,68,68,0.08),rgba(230,126,34,0.04))" }}>
+              <div className="product-visual-icon" style={{ background: "linear-gradient(135deg,rgba(239,68,68,0.15),rgba(230,126,34,0.1))", border: "1px solid rgba(239,68,68,0.2)" }}>
+                <svg viewBox="0 0 64 64" fill="none"><rect x="14" y="26" width="36" height="28" rx="4" fill="#EF4444" fillOpacity="0.2"/><rect x="14" y="26" width="36" height="28" rx="4" stroke="#EF4444" strokeWidth="2" fill="none"/><path d="M22 26V18C22 13.582 25.582 10 30 10H34C38.418 10 42 13.582 42 18V26" stroke="#EF4444" strokeWidth="2" fill="none"/><circle cx="32" cy="40" r="5" stroke="#EF4444" strokeWidth="2" fill="none"/><path d="M32 43V47" stroke="#EF4444" strokeWidth="2" strokeLinecap="round"/></svg>
+              </div>
+              <div className="product-visual-label">AI Debt Collector<br/><span style={{ fontSize: 11, color: "var(--gray-700)" }}>Gets you paid. Nicely.</span></div>
+            </div>
+            <div className="product-info">
+              <div className="product-number" style={{ color: "var(--accent-red)" }}>Product 04</div>
+              <div className="product-logo" style={{ background: "linear-gradient(135deg,#EF4444,#E67E22)" }}>
+                <svg viewBox="0 0 36 36" fill="none"><rect x="6" y="14" width="24" height="18" rx="3" fill="white" fillOpacity="0.2"/><rect x="6" y="14" width="24" height="18" rx="3" stroke="white" strokeWidth="1.5" fill="none"/><path d="M12 14V10C12 7.239 14.239 5 17 5H19C21.761 5 24 7.239 24 10V14" stroke="white" strokeWidth="1.5" fill="none"/><circle cx="18" cy="23" r="3" stroke="white" strokeWidth="1.2" fill="none"/><path d="M18 26V28" stroke="white" strokeWidth="1.2" strokeLinecap="round"/></svg>
+              </div>
+              <div className="product-name">Vault</div>
+              <p className="product-tagline">An AI collections agent that chases your debtors via WhatsApp — firm, fair, and never confrontational.</p>
+              <ul className="product-features">
+                <li>Automated payment reminders: Day 7 (friendly), Day 14 (firm), Day 30 (urgent)</li>
+                <li>Sends one-tap payment links directly in WhatsApp</li>
+                <li>Tracks your full debtors ledger with aging reports</li>
+                <li>Escalates to legal notice draft at 60 days</li>
+                <li>Dashboards your cash flow — projected vs actual receipts</li>
+              </ul>
+              <div className="product-pricing">
+                <div className="price-chip"><div className="pc-amount">R499</div><div className="pc-label">/month</div><div className="pc-desc">Track · 50 invoices</div></div>
+                <div className="price-chip"><div className="pc-amount">R1,299</div><div className="pc-label">/month</div><div className="pc-desc">Collect · Unlimited + escalation</div></div>
+              </div>
+              <a href="#register" className="product-cta">Pre-Register Free →</a>
+            </div>
+          </div>
+
+          {/* Atlas */}
+          <div className="product-row">
+            <div className="product-info">
+              <div className="product-number" style={{ color: "var(--accent-orange)" }}>Product 05</div>
+              <div className="product-logo" style={{ background: "linear-gradient(135deg,#E67E22,#4A90D9)" }}>
+                <svg viewBox="0 0 36 36" fill="none"><path d="M18 4C13.582 4 10 7.582 10 12C10 18 18 30 18 30C18 30 26 18 26 12C26 7.582 22.418 4 18 4Z" fill="white" fillOpacity="0.2"/><path d="M18 6C14.686 6 12 8.686 12 12C12 17 18 27 18 27C18 27 24 17 24 12C24 8.686 21.314 6 18 6Z" stroke="white" strokeWidth="1.5" fill="none"/><circle cx="18" cy="12" r="3" fill="white"/></svg>
+              </div>
+              <div className="product-name">Atlas</div>
+              <p className="product-tagline">Coordinate your field team from WhatsApp. Dispatch jobs, share routes, collect photo proof, and manage schedules.</p>
+              <ul className="product-features">
+                <li>Send job dispatches directly to technician WhatsApp</li>
+                <li>Route optimisation so your team does more jobs per day</li>
+                <li>Photo proof of completed work — sent by client approval</li>
+                <li>Real-time load shedding status updates integrated</li>
+                <li>Customer SMS/WhatsApp updates at each job stage</li>
+              </ul>
+              <div className="product-pricing">
+                <div className="price-chip"><div className="pc-amount">R499</div><div className="pc-label">/month</div><div className="pc-desc">Starter · 3 users</div></div>
+                <div className="price-chip"><div className="pc-amount">R999</div><div className="pc-label">/month</div><div className="pc-desc">Team · Unlimited users</div></div>
+              </div>
+              <a href="#register" className="product-cta">Pre-Register Free →</a>
+            </div>
+            <div className="product-visual" style={{ background: "linear-gradient(135deg,rgba(230,126,34,0.08),rgba(74,144,217,0.04))" }}>
+              <div className="product-visual-icon" style={{ background: "linear-gradient(135deg,rgba(230,126,34,0.15),rgba(74,144,217,0.1))", border: "1px solid rgba(230,126,34,0.2)" }}>
+                <svg viewBox="0 0 64 64" fill="none"><path d="M32 8C24.268 8 18 14.268 18 22C18 32 32 52 32 52C32 52 46 32 46 22C46 14.268 39.732 8 32 8Z" fill="#E67E22" fillOpacity="0.15"/><path d="M32 12C26.477 12 22 16.477 22 22C22 30 32 48 32 48C32 48 42 30 42 22C42 16.477 37.523 12 32 12Z" stroke="#E67E22" strokeWidth="2" fill="none"/><circle cx="32" cy="22" r="6" stroke="#E67E22" strokeWidth="2" fill="#E67E22" fillOpacity="0.3"/><circle cx="32" cy="22" r="2.5" fill="#E67E22"/></svg>
+              </div>
+              <div className="product-visual-label">AI Field Dispatch<br/><span style={{ fontSize: 11, color: "var(--gray-700)" }}>Schedule · Dispatch · Track</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="section" id="how-it-works" style={{ paddingTop: 40 }}>
+        <div className="section-eyebrow">Getting Started</div>
+        <h2 className="section-title">Up and Running in 10 Minutes.</h2>
+        <div className="section-subtitle">No technical knowledge required. No hardware to install. If you can use WhatsApp, you can run SA AI Office.</div>
+        <div className="steps-row">
+          <div className="step-card">
+            <div className="step-num">1</div>
+            <div className="step-title">Pre-Register</div>
+            <div className="step-desc">Tell us about your business and which products interest you.</div>
+            <div className="step-time">⏱️ Takes 2 minutes</div>
+          </div>
+          <div className="step-card">
+            <div className="step-num">2</div>
+            <div className="step-title">Connect Your WhatsApp</div>
+            <div className="step-desc">Link your existing business WhatsApp number. We&apos;ll walk you through a simple 5-step setup.</div>
+            <div className="step-time">⏱️ Takes 5 minutes</div>
+          </div>
+          <div className="step-card">
+            <div className="step-num">3</div>
+            <div className="step-title">AI Goes to Work</div>
+            <div className="step-desc">Your AI is live. It starts answering calls, managing WhatsApp messages, and handling admin from day one.</div>
+            <div className="step-time">✅ Live immediately</div>
+          </div>
+        </div>
+      </section>
+
+      {/* PRE-REGISTER FORM */}
+      <section className="section" id="register" style={{ paddingTop: 40 }}>
+        <div className="section-eyebrow">Join Us</div>
+        <h2 className="section-title">Pre-Register Now.</h2>
+        <div className="section-subtitle">Be first in line when we launch. Pre-registration is free, commitment-free, and gets you early access pricing.</div>
+        <div className="register-section">
+          <div className="register-header">
+            <h3>Reserve Your Spot</h3>
+            <p>No payment required now. We&apos;ll contact you when you&apos;re ready to start.</p>
+          </div>
+          <div className="form-fields" id="formFields">
+            <form className="register-grid" id="preRegisterForm" noValidate>
+              <div className="form-group">
+                <label htmlFor="firstName">First Name *</label>
+                <input type="text" id="firstName" name="firstName" placeholder="Thabo" required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="lastName">Last Name *</label>
+                <input type="text" id="lastName" name="lastName" placeholder="Mkhize" required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="email">Business Email *</label>
+                <input type="email" id="email" name="email" placeholder="thabo@example.co.za" required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="phone">Business Phone *</label>
+                <input type="tel" id="phone" name="phone" placeholder="+27 81 234 5678" required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="business">Business Name *</label>
+                <input type="text" id="business" name="business" placeholder="Mkhize Electrical" required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="industry">Industry *</label>
+                <select id="industry" name="industry" required>
+                  <option value="" disabled>Select your industry</option>
+                  <option value="medical">Medical / Healthcare</option>
+                  <option value="legal">Legal / Attorney</option>
+                  <option value="real_estate">Real Estate</option>
+                  <option value="home_services">Home Services (Plumber, Electrician, HVAC)</option>
+                  <option value="retail">Retail / Spaza Shop</option>
+                  <option value="it">IT / Technology</option>
+                  <option value="construction">Construction / Trade</option>
+                  <option value="finance">Finance / Accounting</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="form-group full">
+                <label htmlFor="products">Products You&apos;re Interested In *</label>
+                <select id="products" name="products" required>
+                  <option value="" disabled>Select the product you want</option>
+                  <option value="luna_office">Luna Office — AI Receptionist</option>
+                  <option value="aira">Aira — WhatsApp Business AI</option>
+                  <option value="lekgotla">Lekgotla — HR &amp; Compliance</option>
+                  <option value="vault">Vault — Debt Collection</option>
+                  <option value="atlas">Atlas — Field Dispatch</option>
+                  <option value="full_suite">Full Suite — All 5 Products</option>
+                </select>
+              </div>
+              <div className="form-group full">
+                <label htmlFor="message">Anything else you&apos;d like us to know? (Optional)</label>
+                <textarea id="message" name="message" placeholder="Tell us about your business..."></textarea>
+              </div>
+              <div className="form-group full register-submit">
+                <button type="submit" className="btn-primary">Reserve My Spot →</button>
+                <p>We&apos;ll be in touch within 24 hours. No spam. No payment required now.</p>
+              </div>
+            </form>
+          </div>
+          <div className="form-success" id="formSuccess">
+            <div className="form-success-icon">
+              <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="28" fill="#10B981" fillOpacity="0.15"/><circle cx="32" cy="32" r="28" stroke="#10B981" strokeWidth="2"/><path d="M20 32L28 40L44 24" stroke="#10B981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+            <h3>You&apos;re on the list!</h3>
+            <p>Thank you — we&apos;ll be in touch within 24 hours to confirm your spot.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section className="section" id="pricing" style={{ paddingTop: 40 }}>
+        <div className="section-eyebrow">Pricing</div>
+        <h2 className="section-title">Simple Pricing. No Surprises.</h2>
+        <div className="section-subtitle">Pay only for what you use. Scale as you grow. All plans include POPIA-compliant data handling.</div>
+        <div className="pricing-grid">
+          <div className="pricing-card">
+            <div className="pricing-name">Luna Office</div>
+            <div className="pricing-desc">AI Receptionist</div>
+            <div className="pricing-amount">R499</div>
+            <div className="pricing-period">per month · from</div>
+            <ul className="pricing-features">
+              <li>100 AI calls per month</li>
+              <li>WhatsApp enquiry handling</li>
+              <li>Appointment booking</li>
+              <li>Email support</li>
+            </ul>
+            <a href="#register" className="btn-primary">Pre-Register</a>
+          </div>
+          <div className="pricing-card popular">
+            <div className="pricing-name">Full Suite</div>
+            <div className="pricing-desc">All 5 Products Bundle</div>
+            <div className="pricing-amount">R1,499</div>
+            <div className="pricing-period">per month · save R750+</div>
+            <ul className="pricing-features">
+              <li>All 5 AI products included</li>
+              <li>Unlimited calls on Luna Office</li>
+              <li>WhatsApp-native, English</li>
+              <li>Priority onboarding</li>
+              <li>Dedicated support</li>
+            </ul>
+            <a href="#register" className="btn-primary">Pre-Register</a>
+          </div>
+          <div className="pricing-card">
+            <div className="pricing-name">Aira</div>
+            <div className="pricing-desc">WhatsApp Business AI</div>
+            <div className="pricing-amount">R199</div>
+            <div className="pricing-period">per month · from</div>
+            <ul className="pricing-features">
+              <li>50 WhatsApp conversations/mo</li>
+              <li>Order taking &amp; invoicing</li>
+              <li>Reminders &amp; broadcasts</li>
+              <li>Load shedding mode</li>
+            </ul>
+            <a href="#register" className="btn-primary">Pre-Register</a>
+          </div>
+        </div>
+        <p className="pricing-note">💡 Most businesses start with Luna Office and add products as they grow.<br/>Enterprise pricing available for 20+ employees. <a href="#contact" style={{ color: "var(--blue)" }}>Talk to us.</a></p>
+      </section>
+
+      {/* CONTACT */}
+      <section className="contact-section" id="contact">
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div className="section-eyebrow">Get In Touch</div>
+          <h2 className="section-title">Contact Us or Leave a Review</h2>
+          <div className="section-subtitle">We&apos;re a small South African team and we personally read every message.</div>
+          <div className="contact-grid">
+            <div className="contact-card">
+              <div className="contact-card-icon" style={{ background: "linear-gradient(135deg,rgba(74,144,217,0.15),rgba(155,89,182,0.1))", border: "1px solid rgba(74,144,217,0.2)" }}>
+                <svg viewBox="0 0 24 24" fill="none"><path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="#4A90D9" strokeWidth="1.5" fill="none"/><polyline points="22,6 12,13 2,6" stroke="#4A90D9" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </div>
+              <h3>Email Us</h3>
+              <p>The best way to reach us for sales questions, partnership ideas, or anything else. We respond within 24 hours.</p>
+              <a href="mailto:aoraaiclaw@gmail.com">aoraaiclaw@gmail.com →</a>
+            </div>
+            <div className="contact-card">
+              <div className="contact-card-icon" style={{ background: "linear-gradient(135deg,rgba(16,185,129,0.15),rgba(74,144,217,0.1))", border: "1px solid rgba(16,185,129,0.2)" }}>
+                <svg viewBox="0 0 24 24" fill="none"><path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" stroke="#10B981" strokeWidth="1.5" fill="none"/><polyline points="22,6 12,13 2,6" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </div>
+              <h3>Leave a Review or Share Feedback</h3>
+              <p>Used SA AI Office and have thoughts — good or bad? We want to hear it. Leave us a review on Google or email us directly.</p>
+              <a href="mailto:aoraaiclaw@gmail.com?subject=Feedback%20/%20Review">Send us your feedback →</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="section" id="faq">
+        <div className="section-eyebrow">Questions</div>
+        <h2 className="section-title">Frequently Asked</h2>
+        <div className="section-subtitle">Real questions from real SA business owners.</div>
+        <div className="faq-list">
+          <div className="faq-item">
+            <button className="faq-q">Does my client need to download an app?<span className="faq-icon">+</span></button>
+            <div className="faq-a">No. Your clients interact with all our AI tools directly through WhatsApp — the app they already have and use every day.</div>
+          </div>
+          <div className="faq-item">
+            <button className="faq-q">What happens during load shedding?<span className="faq-icon">+</span></button>
+            <div className="faq-a">Our systems run entirely in the cloud — not from your office. As long as your team has mobile data, our AI keeps running.</div>
+          </div>
+          <div className="faq-item">
+            <button className="faq-q">Is my client&apos;s data safe? (POPIA)<span className="faq-icon">+</span></button>
+            <div className="faq-a">Yes. POPIA compliance is built into the product. All data is stored securely. We never use your client data to train our AI models.</div>
+          </div>
+          <div className="faq-item">
+            <button className="faq-q">Can I cancel anytime?<span className="faq-icon">+</span></button>
+            <div className="faq-a">Yes. No lock-in contracts. No cancellation fees. Month-to-month on all plans.</div>
+          </div>
+          <div className="faq-item">
+            <button className="faq-q">How long does setup take?<span className="faq-icon">+</span></button>
+            <div className="faq-a">Most businesses are fully operational within 10 minutes. Connect your WhatsApp, set your hours, and configure key phrases.</div>
+          </div>
+          <div className="faq-item">
+            <button className="faq-q">Do you offer support in South Africa?<span className="faq-icon">+</span></button>
+            <div className="faq-a">Yes. Our support team is based in South Africa and works during SA business hours (08:00–17:00 CAT).</div>
+          </div>
+          <div className="faq-item">
+            <button className="faq-q">When will you be launching?<span className="faq-icon">+</span></button>
+            <div className="faq-a">We are currently in early access. Pre-registered businesses will be contacted first as we onboard each batch.</div>
+          </div>
+        </div>
+      </section>
+
+      {/* FINAL CTA */}
+      <section className="final-cta" id="signup">
+        <div className="final-cta-title">Your competitors<br/>are already using AI.</div>
+        <p className="final-cta-sub">The SA businesses that adopt AI in the next 24 months will be the ones that survive the next decade.</p>
+        <p className="final-cta-sub2">Pre-registration is free · No payment now · Early access pricing · Cancel anytime</p>
+        <div className="final-cta-buttons">
+          <a href="#register" className="btn-primary" style={{ fontSize: 16, padding: "18px 40px" }}>Pre-Register Now →</a>
+          <a href="mailto:aoraaiclaw@gmail.com" className="btn-secondary" style={{ fontSize: 16, padding: "18px 40px" }}>Talk to Us First</a>
+        </div>
+        <div style={{ display: "flex", gap: 32, justifyContent: "center", flexWrap: "wrap", marginTop: 32 }}>
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: "var(--white)" }}>520+</div><div style={{ fontSize: 11, color: "var(--gray-500)", textTransform: "uppercase", letterSpacing: 1 }}>SA Businesses on Waitlist</div></div>
+          <div style={{ width: 1, background: "rgba(74,144,217,0.2)", alignSelf: "stretch" }}></div>
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: "var(--white)" }}>5</div><div style={{ fontSize: 11, color: "var(--gray-500)", textTransform: "uppercase", letterSpacing: 1 }}>AI Products</div></div>
+          <div style={{ width: 1, background: "rgba(74,144,217,0.2)", alignSelf: "stretch" }}></div>
+          <div style={{ textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: "var(--white)" }}>R199</div><div style={{ fontSize: 11, color: "var(--gray-500)", textTransform: "uppercase", letterSpacing: 1 }}>From/month</div></div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer>
+        <div className="footer-top">
+          <div className="footer-brand">
+            <a href="#" style={{ fontSize: 18, fontWeight: 800, color: "var(--white)", textDecoration: "none", display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                <rect width="32" height="32" rx="8" fill="url(#fNavGrad)"/>
+                <path d="M16 6L8 12V20L16 26L24 20V12L16 6Z" fill="white" fillOpacity="0.9"/>
+                <circle cx="16" cy="16" r="4" fill="url(#fNavGrad2)"/>
+                <defs>
+                  <linearGradient id="fNavGrad" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stopColor="#4A90D9"/><stop offset="100%" stopColor="#9B59B6"/></linearGradient>
+                  <linearGradient id="fNavGrad2" x1="12" y1="12" x2="20" y2="20"><stop offset="0%" stopColor="#60A5FA"/><stop offset="100%" stopColor="#9B59B6"/></linearGradient>
+                </defs>
+              </svg>
+              SA AI Office
+            </a>
+            <p>Five AI tools built for South African businesses. We answer calls, manage WhatsApp, handle HR, chase debt, and coordinate field teams — from R199/month.</p>
+          </div>
+          <div className="footer-col">
+            <h4>Products</h4>
+            <a href="#products">Luna Office</a>
+            <a href="#products">Aira</a>
+            <a href="#products">Lekgotla</a>
+            <a href="#products">Vault</a>
+            <a href="#products">Atlas</a>
+          </div>
+          <div className="footer-col">
+            <h4>Company</h4>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#faq">FAQ</a>
+            <a href="#contact">Contact</a>
+          </div>
+          <div className="footer-col">
+            <h4>Get In Touch</h4>
+            <a href="mailto:aoraaiclaw@gmail.com">aoraaiclaw@gmail.com</a>
+            <a href="#register">Pre-Register</a>
+            <a href="#contact">Leave a Review</a>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <div className="footer-copy">© 2026 SA AI Office. A product of Lockdown Studios. All rights reserved. · POPIA Compliant · Built in South Africa 🇿🇦</div>
+          <div className="footer-legal">
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms of Service</a>
+            <a href="#">POPIA Notice</a>
+          </div>
+        </div>
+      </footer>
+    </>
+  );
+}

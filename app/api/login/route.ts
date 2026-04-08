@@ -1,34 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac, timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "crypto";
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
 import { clientUsers } from "@/db/schema";
-import { createAdminSession } from "@/lib/auth";
-
-const ADMIN_COOKIE = "vercelaura_admin_session";
-const CLIENT_COOKIE = "vercelaura_client_session";
+import { ADMIN_COOKIE, createAdminSession } from "@/lib/auth";
+import { verifyClientPassword } from "@/lib/client-password";
+import { CLIENT_COOKIE, createClientSessionToken } from "@/lib/client-session";
 
 function secureCompare(a: string, b: string) {
   const aBuf = Buffer.from(a);
   const bBuf = Buffer.from(b);
   if (aBuf.length !== bBuf.length) return false;
   return timingSafeEqual(aBuf, bBuf);
-}
-
-function hashPassword(password: string): string {
-  return createHmac("sha256", process.env.ADMIN_SESSION_SECRET ?? "luna-secret")
-    .update(password)
-    .digest("hex");
-}
-
-function verifyClientPassword(plain: string, storedHash: string): boolean {
-  return secureCompare(hashPassword(plain), storedHash);
-}
-
-function createClientToken(clientId: string, userId: string): string {
-  const ttl = 1000 * 60 * 60 * 12; // 12 hours
-  const payload = `${userId}|${clientId}|${Date.now() + ttl}`;
-  return Buffer.from(payload).toString("base64url");
 }
 
 export async function POST(req: NextRequest) {
@@ -77,7 +60,7 @@ export async function POST(req: NextRequest) {
   if (clientUser) {
     const valid = verifyClientPassword(password, clientUser.passwordHash);
     if (valid) {
-      const token = createClientToken(clientUser.clientId, clientUser.id);
+      const token = createClientSessionToken(clientUser.clientId, clientUser.id);
       const response = NextResponse.json({
         ok: true,
         role: "client",

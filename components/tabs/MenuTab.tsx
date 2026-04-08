@@ -1,9 +1,29 @@
 "use client";
 
-import styles from "./HomeTab.module.css";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import styles from "./HomeTab.module.css";
+import type { DashboardData } from "@/app/dashboard/types";
 
-export default function MenuTab() {
+type MenuTabProps = {
+  dashboard: DashboardData;
+};
+
+export default function MenuTab({ dashboard }: MenuTabProps) {
+  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await fetch("/api/logout", { method: "POST" });
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
+  }
+
   return (
     <div className={styles.root}>
       <div className={styles.header}>
@@ -17,26 +37,26 @@ export default function MenuTab() {
           {
             label: "Account",
             items: [
-              { name: "Profile", value: "Sarah", icon: "👤", href: "/profile" },
-              { name: "Team members", value: "2 active", icon: "👥" },
-              { name: "Billing", value: "Free plan", icon: "💳" },
+              { name: "Profile", value: dashboard.user.name, href: "/profile" },
+              { name: "Email", value: dashboard.user.email },
+              { name: "Team members", value: `${dashboard.team.memberCount} active` },
             ],
           },
           {
-            label: "Integrations",
+            label: "Workspace",
             items: [
-              { name: "Trello", value: "Connected", icon: "📋" },
-              { name: "Twilio", value: "+27 11 012 5874", icon: "📱" },
-              { name: "Hume EVI", value: "Active", icon: "🎙" },
-              { name: "Google Calendar", value: "Not connected", icon: "📅" },
+              { name: "Company", value: dashboard.client.name },
+              { name: "Plan", value: dashboard.client.plan },
+              { name: "Primary number", value: dashboard.ai.primaryNumber || "Not assigned" },
+              { name: "AI status", value: dashboard.ai.active ? "Active" : "Needs setup" },
             ],
           },
           {
             label: "Support",
             items: [
-              { name: "Help Center", value: "", icon: "❓" },
-              { name: "Contact support", value: "", icon: "💬" },
-              { name: "Privacy policy", value: "", icon: "🔒" },
+              { name: "Industry", value: dashboard.client.industry || "Not set" },
+              { name: "Client email", value: dashboard.client.email || "Not set" },
+              { name: "Client phone", value: dashboard.client.phone || "Not set" },
             ],
           },
         ].map((group) => (
@@ -45,27 +65,29 @@ export default function MenuTab() {
               {group.label}
             </h2>
             <div className="card" style={{ overflow: "hidden" }}>
-              {group.items.map((item, i) => {
+              {group.items.map((item, index) => {
                 const inner = (
                   <div
                     className="list-row"
                     style={{
-                      borderBottom: i < group.items.length - 1 ? "1px solid rgba(76,175,80,0.06)" : "none",
+                      borderBottom: index < group.items.length - 1 ? "1px solid rgba(76,175,80,0.06)" : "none",
                       textDecoration: "none",
                     }}
                   >
-                    <div style={{ fontSize: 20 }}>{item.icon}</div>
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 14, fontWeight: 600, color: "#F0EDE6", margin: 0 }}>{item.name}</p>
-                      {item.value && (
+                      {item.value ? (
                         <p style={{ fontSize: 12, color: "#6B7B6B", margin: "2px 0 0" }}>{item.value}</p>
-                      )}
+                      ) : null}
                     </div>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7B6B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
+                    {item.href ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7B6B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    ) : null}
                   </div>
                 );
+
                 return item.href ? (
                   <Link key={item.name} href={item.href} style={{ textDecoration: "none" }}>
                     {inner}
@@ -80,9 +102,11 @@ export default function MenuTab() {
 
         <button
           className="btn-primary"
+          disabled={signingOut}
+          onClick={() => void handleSignOut()}
           style={{ marginTop: 16, background: "rgba(244,67,54,0.15)", color: "#F44336" }}
         >
-          Sign out
+          {signingOut ? "Signing out..." : "Sign out"}
         </button>
       </div>
     </div>
