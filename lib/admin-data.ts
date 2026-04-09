@@ -15,6 +15,7 @@ import type {
   AdminCall,
   AdminClientDetail,
   AdminContact,
+  AdminGlobalLead,
   AdminLead,
   AdminTask,
   Client,
@@ -91,6 +92,51 @@ function mapClientUser(row: typeof clientUsers.$inferSelect): ClientUser {
     email: row.email,
     role: mapUserRole(row.role),
   };
+}
+
+function parseLeadNotes(rawNotes: string | null | undefined) {
+  const parsed = {
+    company: "",
+    industry: "",
+    preferredCallbackTime: "",
+    message: "",
+  };
+
+  if (!rawNotes) {
+    return parsed;
+  }
+
+  const extraLines: string[] = [];
+
+  for (const line of rawNotes.split(/\r?\n/).map((value) => value.trim()).filter(Boolean)) {
+    if (line.startsWith("Company: ")) {
+      parsed.company = line.slice("Company: ".length).trim();
+      continue;
+    }
+
+    if (line.startsWith("Industry: ")) {
+      parsed.industry = line.slice("Industry: ".length).trim();
+      continue;
+    }
+
+    if (line.startsWith("Preferred callback: ")) {
+      parsed.preferredCallbackTime = line.slice("Preferred callback: ".length).trim();
+      continue;
+    }
+
+    if (line.startsWith("Message: ")) {
+      parsed.message = line.slice("Message: ".length).trim();
+      continue;
+    }
+
+    extraLines.push(line);
+  }
+
+  if (!parsed.message && extraLines.length) {
+    parsed.message = extraLines.join(" ");
+  }
+
+  return parsed;
 }
 
 function parseTranscript(
@@ -191,6 +237,35 @@ export async function listAdminClients(): Promise<Client[]> {
   );
 }
 
+export async function listAdminLeads(): Promise<AdminGlobalLead[]> {
+  const [leadRows, clientRows] = await Promise.all([
+    db.select().from(leads).orderBy(desc(leads.createdAt)),
+    db.select().from(clients),
+  ]);
+
+  const clientNames = new Map(clientRows.map((row) => [row.id, row.name]));
+
+  return leadRows.map((row) => {
+    const details = parseLeadNotes(row.notes);
+
+    return {
+      id: row.id,
+      name: row.name || row.email || row.phone,
+      phone: row.phone,
+      email: row.email ?? "",
+      topic: row.topic,
+      status: row.status ?? "new",
+      source: row.source ?? "web",
+      company: details.company,
+      industry: details.industry,
+      preferredCallbackTime: details.preferredCallbackTime,
+      message: details.message,
+      clientName: row.clientId ? clientNames.get(row.clientId) ?? "" : "",
+      createdAt: toIsoString(row.createdAt),
+    };
+  });
+}
+
 export async function getAdminClientDetail(clientId: string): Promise<AdminClientDetail | null> {
   const [clientRow] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
 
@@ -219,15 +294,19 @@ export async function getAdminClientDetail(clientId: string): Promise<AdminClien
     lastSeenAt: toIsoString(row.updatedAt || row.createdAt),
   }));
 
-  const mappedLeads: AdminLead[] = leadRows.map((row) => ({
-    id: row.id,
-    name: row.name || row.email || row.phone,
-    phone: row.phone,
-    topic: row.topic,
-    preferredCallbackTime: "",
-    status: row.status ?? "new",
-    createdAt: toIsoString(row.createdAt),
-  }));
+  const mappedLeads: AdminLead[] = leadRows.map((row) => {
+    const details = parseLeadNotes(row.notes);
+
+    return {
+      id: row.id,
+      name: row.name || row.email || row.phone,
+      phone: row.phone,
+      topic: row.topic,
+      preferredCallbackTime: details.preferredCallbackTime,
+      status: row.status ?? "new",
+      createdAt: toIsoString(row.createdAt),
+    };
+  });
 
   const mappedCalls: AdminCall[] = callRows.map((row) => {
     const relatedContact = row.contactId ? contactsById.get(row.contactId) : undefined;

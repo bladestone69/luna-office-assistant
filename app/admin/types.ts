@@ -64,6 +64,22 @@ export interface AdminLead {
   createdAt: string;
 }
 
+export interface AdminGlobalLead {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  topic: string;
+  status: string;
+  source: string;
+  company: string;
+  industry: string;
+  preferredCallbackTime: string;
+  message: string;
+  clientName: string;
+  createdAt: string;
+}
+
 export interface AdminTranscriptLine {
   speaker: string;
   text: string;

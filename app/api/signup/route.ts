@@ -4,87 +4,109 @@ import { leads } from "@/db/schema";
 import { isHoneypotTriggered } from "@/lib/api";
 import { getErnestEmail, sendEmail } from "@/lib/email";
 
-// ─── POST /api/signup — Public lead capture (no auth required) ──────────────
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
       name,
+      firstName,
+      lastName,
       phone,
       email,
       company,
       industry,
+      topic,
+      products,
       message,
       preferredCallbackTime,
       consent,
     } = body;
 
-    // Basic validation
-    if (!name?.trim()) {
+    const fullName =
+      typeof name === "string" && name.trim()
+        ? name.trim()
+        : [firstName, lastName]
+            .map((value) => (typeof value === "string" ? value.trim() : ""))
+            .filter(Boolean)
+            .join(" ");
+    const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const resolvedTopic =
+      (typeof topic === "string" && topic.trim()) ||
+      (typeof products === "string" && products.trim()) ||
+      "Pre-registration";
+    const consentGiven = consent === undefined ? true : Boolean(consent);
+
+    if (!fullName) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
-    if (!phone?.trim()) {
+    if (!normalizedPhone) {
       return NextResponse.json({ error: "Phone number is required" }, { status: 400 });
     }
-    if (!email?.trim()) {
+    if (!normalizedEmail) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
-    if (!consent) {
+    if (!consentGiven) {
       return NextResponse.json({ error: "Consent is required" }, { status: 400 });
     }
 
-    // Honeypot check
     if (isHoneypotTriggered(body.website)) {
-      // Silently accept to not tip off bots
       return NextResponse.json({ message: "Thank you! We'll be in touch soon." });
     }
 
-    // Save lead to DB
-    const [lead] = await db.insert(leads).values({
-      name: name.trim(),
-      phone: phone.trim(),
-      email: email.trim().toLowerCase(),
-      topic: message?.trim() || "General inquiry",
-      source: "web",
-      status: "new",
-      notes: [
-        company ? `Company: ${company}` : null,
-        industry ? `Industry: ${industry}` : null,
-        preferredCallbackTime ? `Preferred callback: ${preferredCallbackTime}` : null,
-      ].filter(Boolean).join("\n") || null,
-    }).returning();
+    const [lead] = await db
+      .insert(leads)
+      .values({
+        name: fullName,
+        phone: normalizedPhone,
+        email: normalizedEmail,
+        topic: resolvedTopic,
+        source: "web",
+        status: "new",
+        notes:
+          [
+            company ? `Company: ${String(company).trim()}` : null,
+            industry ? `Industry: ${String(industry).trim()}` : null,
+            preferredCallbackTime ? `Preferred callback: ${String(preferredCallbackTime).trim()}` : null,
+            message ? `Message: ${String(message).trim()}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n") || null,
+      })
+      .returning();
 
-    // Notify Ernest
     try {
       await sendEmail({
         to: getErnestEmail(),
-        subject: `New signup from ${name.trim()} — Aura Office`,
+        subject: `New signup from ${fullName} - Aura Office`,
         text: [
-          `New Aura Office signup — callback needed.`,
-          ``,
-          `Name: ${name.trim()}`,
-          `Company: ${company?.trim() || "—"}`,
-          `Industry: ${industry?.trim() || "—"}`,
-          `Phone: ${phone.trim()}`,
-          `Email: ${email.trim()}`,
-          `Preferred callback: ${preferredCallbackTime?.trim() || "—"}`,
-          `Message: ${message?.trim() || "—"}`,
-          ``,
+          "New Aura Office signup - callback needed.",
+          "",
+          `Name: ${fullName}`,
+          `Company: ${typeof company === "string" && company.trim() ? company.trim() : "-"}`,
+          `Industry: ${typeof industry === "string" && industry.trim() ? industry.trim() : "-"}`,
+          `Product interest: ${resolvedTopic}`,
+          `Phone: ${normalizedPhone}`,
+          `Email: ${normalizedEmail}`,
+          `Preferred callback: ${typeof preferredCallbackTime === "string" && preferredCallbackTime.trim() ? preferredCallbackTime.trim() : "-"}`,
+          `Message: ${typeof message === "string" && message.trim() ? message.trim() : "-"}`,
+          "",
           `Lead ID: ${lead.id}`,
         ].join("\n"),
       });
     } catch (emailError) {
-      // Non-fatal — lead is saved, notification failing shouldn't block the response
       console.error("[signup] Email notification failed:", emailError);
     }
 
-    return NextResponse.json({
-      message: "Thank you! We'll call you within one business day to get started.",
-      leadId: lead.id,
-    }, { status: 201 });
-
-  } catch (err: any) {
-    console.error("[signup] Error:", err.message);
+    return NextResponse.json(
+      {
+        message: "Thank you! We'll call you within one business day to get started.",
+        leadId: lead.id,
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    console.error("[signup] Error:", error);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }

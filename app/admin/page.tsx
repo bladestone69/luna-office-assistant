@@ -7,6 +7,7 @@ import type {
   AdminCall,
   AdminClientDetail,
   AdminContact,
+  AdminGlobalLead,
   AdminLead,
   AdminTask,
   Client,
@@ -18,6 +19,7 @@ import type {
 type AdminSection =
   | "dashboard"
   | "clients"
+  | "leads"
   | "usage"
   | "integrations"
   | "settings";
@@ -42,6 +44,7 @@ type IntegrationState = Record<string, boolean>;
 const SECTIONS: { id: AdminSection; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "clients", label: "Clients" },
+  { id: "leads", label: "Leads" },
   { id: "usage", label: "Usage & Billing" },
   { id: "integrations", label: "Global Integrations" },
   { id: "settings", label: "Settings" },
@@ -195,6 +198,9 @@ export default function AdminPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [clientsError, setClientsError] = useState("");
+  const [allLeads, setAllLeads] = useState<AdminGlobalLead[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(true);
+  const [leadsError, setLeadsError] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [clientTab, setClientTab] = useState<(typeof CLIENT_TABS)[number]>("Overview");
   const [showNewClient, setShowNewClient] = useState(false);
@@ -229,8 +235,22 @@ export default function AdminPage() {
     }
   }
 
+  async function loadAllLeads() {
+    setLoadingLeads(true);
+    setLeadsError("");
+    try {
+      const nextLeads = await apiRequest<AdminGlobalLead[]>("/api/admin/leads");
+      setAllLeads(nextLeads);
+    } catch (error) {
+      setLeadsError(error instanceof Error ? error.message : "Failed to load leads");
+    } finally {
+      setLoadingLeads(false);
+    }
+  }
+
   useEffect(() => {
     void loadClients();
+    void loadAllLeads();
   }, []);
 
   useEffect(() => {
@@ -299,6 +319,15 @@ export default function AdminPage() {
               onBack={() => setSelectedClientId(null)}
               activeTab={clientTab}
               onTabChange={setClientTab}
+            />
+          )}
+
+          {section === "leads" && (
+            <LeadsDatabaseSection
+              leads={allLeads}
+              loading={loadingLeads}
+              error={leadsError}
+              onRetry={() => void loadAllLeads()}
             />
           )}
 
@@ -1297,6 +1326,101 @@ function TasksTab({ tasks }: { tasks: AdminTask[] }) {
         headers={["Type", "Status", "Due", "Notes"]}
         rows={tasks.map((task) => [task.taskType, task.status, task.dueAt || "-", task.notes || "-"])}
       />
+    </div>
+  );
+}
+
+function LeadsDatabaseSection({
+  leads,
+  loading,
+  error,
+  onRetry,
+}: {
+  leads: AdminGlobalLead[];
+  loading: boolean;
+  error: string;
+  onRetry: () => void;
+}) {
+  const unassignedCount = leads.filter((lead) => !lead.clientName).length;
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.sectionHeaderRow}>
+        <div>
+          <h1 className={styles.pageTitle}>Leads Database</h1>
+          <p className={styles.sectionDesc} style={{ margin: "8px 0 0" }}>
+            All pre-registrations and client-linked leads in one place.
+          </p>
+        </div>
+      </div>
+
+      <div className={styles.statsGrid}>
+        <StatCard label="All Leads" value={String(leads.length)} delta="Database records" />
+        <StatCard label="Unassigned Leads" value={String(unassignedCount)} delta="Public signups waiting for follow-up" />
+        <StatCard label="Web Leads" value={String(leads.filter((lead) => lead.source === "web").length)} delta="Captured from forms" />
+        <StatCard label="Qualified Leads" value={String(leads.filter((lead) => lead.status === "qualified").length)} delta="Marked qualified" />
+      </div>
+
+      <div className={styles.tableCard}>
+        <div className={styles.tableHeader}>
+          <h2 className={styles.tableTitle}>All Leads</h2>
+          {!loading && error ? (
+            <button className={styles.btnGhost} type="button" onClick={onRetry}>
+              Retry
+            </button>
+          ) : null}
+        </div>
+        {loading ? (
+          <p className={styles.emptyState}>Loading leads...</p>
+        ) : error ? (
+          <p className={styles.emptyState}>{error}</p>
+        ) : !leads.length ? (
+          <p className={styles.emptyState}>No leads saved yet.</p>
+        ) : (
+          <div className={styles.tableOverflow}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Business</th>
+                  <th>Product</th>
+                  <th>Contact</th>
+                  <th>Callback</th>
+                  <th>Client</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leads.map((lead) => (
+                  <tr key={lead.id}>
+                    <td>
+                      <div>
+                        <p className={styles.tdName}>{lead.name}</p>
+                        <p className={styles.tdMuted}>{lead.message || lead.industry || lead.source}</p>
+                      </div>
+                    </td>
+                    <td>{lead.company || "-"}</td>
+                    <td>{lead.topic}</td>
+                    <td>
+                      <div>
+                        <p className={styles.tdName}>{lead.phone}</p>
+                        <p className={styles.tdMuted}>{lead.email || "-"}</p>
+                      </div>
+                    </td>
+                    <td>{lead.preferredCallbackTime || "-"}</td>
+                    <td>{lead.clientName || "Unassigned"}</td>
+                    <td>
+                      <span className={`tag ${lead.status === "new" ? "tag-amber" : "tag-green"}`}>{lead.status}</span>
+                    </td>
+                    <td>{formatDate(lead.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

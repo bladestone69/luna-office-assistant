@@ -63,10 +63,73 @@ export default function LandingPage() {
 
     // Form submission
     const form = document.getElementById('preRegisterForm') as HTMLFormElement | null;
-    if (form) {
-      form.addEventListener('submit', function(e) {
-        e.preventDefault();
+    const fields = document.getElementById('formFields');
+    const success = document.getElementById('formSuccess');
+    const formError = document.getElementById('formError');
+    const submitButton = document.getElementById('preRegisterSubmit') as HTMLButtonElement | null;
+    let isSubmitting = false;
+
+    const handleSubmit = async (e: Event) => {
+      e.preventDefault();
+
+      if (!form || isSubmitting) {
+        return;
+      }
+
+      isSubmitting = true;
+      if (formError) {
+        formError.textContent = '';
+      }
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Saving...';
+      }
+
+      try {
         const formData = new FormData(form);
+        const body = Object.fromEntries(formData.entries()) as Record<string, string>;
+        const response = await fetch('/api/signup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            firstName: body.firstName,
+            lastName: body.lastName,
+            email: body.email,
+            phone: body.phone,
+            company: body.business,
+            industry: body.industry,
+            products: body.products,
+            message: body.message,
+          }),
+        });
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Unable to save your pre-registration right now.');
+        }
+
+        form.reset();
+        fields?.classList.add('hidden');
+        success?.classList.add('show');
+      } catch (error) {
+        if (formError) {
+          formError.textContent =
+            error instanceof Error ? error.message : 'Unable to save your pre-registration right now.';
+        }
+      } finally {
+        isSubmitting = false;
+        if (submitButton && !success?.classList.contains('show')) {
+          submitButton.disabled = false;
+          submitButton.textContent = 'Reserve My Spot ->';
+        }
+      }
+    };
+    if (false && form) {
+      form?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(form ?? undefined);
         const body = Object.fromEntries(formData.entries()) as Record<string, string>;
         const emailBody = `New Pre-Registration${body.products ? ` — ${body.products}` : ''}
 
@@ -83,7 +146,16 @@ Industry: ${body.industry}${body.message ? `\n\nMessage: ${body.message}` : ''}`
       });
     }
 
-    return () => window.removeEventListener('scroll', handleScroll);
+    if (form) {
+      form.addEventListener('submit', handleSubmit);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (form) {
+        form.removeEventListener('submit', handleSubmit);
+      }
+    };
   }, []);
 
   return (
@@ -476,6 +548,13 @@ Industry: ${body.industry}${body.message ? `\n\nMessage: ${body.message}` : ''}`
         .register-submit { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 8px; }
         .register-submit .btn-primary { width: 100%; justify-content: center; font-size: 16px; padding: 16px; }
         .register-submit p { font-size: 12px; color: var(--gray-500); }
+        .form-error {
+          min-height: 20px;
+          margin-top: 14px;
+          text-align: center;
+          font-size: 13px;
+          color: var(--accent-red);
+        }
         .form-success { display: none; text-align: center; padding: 40px; }
         .form-success.show { display: block; }
         .form-success-icon { font-size: 56px; margin-bottom: 16px; }
@@ -966,10 +1045,11 @@ Industry: ${body.industry}${body.message ? `\n\nMessage: ${body.message}` : ''}`
                 <textarea id="message" name="message" placeholder="Tell us about your business..."></textarea>
               </div>
               <div className="form-group full register-submit">
-                <button type="submit" className="btn-primary">Reserve My Spot →</button>
+                <button type="submit" className="btn-primary" id="preRegisterSubmit">Reserve My Spot -&gt;</button>
                 <p>We&apos;ll be in touch within 24 hours. No spam. No payment required now.</p>
               </div>
             </form>
+            <div className="form-error" id="formError"></div>
           </div>
           <div className="form-success" id="formSuccess">
             <div className="form-success-icon">
