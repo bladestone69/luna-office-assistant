@@ -1,0 +1,10 @@
+import { NextResponse } from "next/server";
+import { isAuthenticated } from "@/lib/auth";
+import { getDeskSnapshot } from "@/lib/store";
+
+export async function GET() {
+  if (!isAuthenticated()) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return NextResponse.json(getDeskSnapshot());
+}
