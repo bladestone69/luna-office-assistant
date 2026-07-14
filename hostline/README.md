@@ -1,27 +1,15 @@
 # Hostline
 
-**AI front desk powered by Grok Voice Agent.** Separate from Aura (Hume). Answers calls, qualifies leads, and books meetings for South African SMEs.
+**AI front desk powered by Grok Voice Agent.** Two doors, one product:
 
-Aura at the repo root is untouched. This app lives only under `hostline/`.
+| Path | Who | What they see |
+|------|-----|----------------|
+| `/owner` | You (platform owner) | Clients, Grok studio, billing, platform keys |
+| `/desk` | Your clients | Calm desk only: line status, people, calls |
 
-## Name
+Aura at the repo root is untouched. This app lives under `hostline/`.
 
-**Hostline** = the host on the phone line.
-
-Other strong options if you want to rename later:
-- **Portico** (entrance / reception metaphor)
-- **Deskline**
-- **Firstline**
-- **Ringdesk**
-
-## Stack
-
-- Next.js 14 + TypeScript + Tailwind
-- xAI Grok Voice Agent (Builder + API)
-- Admin desk for agent config, leads, calls
-- Webhook: `POST /api/webhooks/xai` for Grok tool calls
-
-## Run locally
+## Run
 
 ```bash
 cd hostline
@@ -32,21 +20,36 @@ npm run dev
 
 Open [http://localhost:3001](http://localhost:3001).
 
-Default admin password: `change-me` (set `HOSTLINE_ADMIN_PASSWORD`).
+### Demo logins
 
-## Connect Grok
+**Owner atelier**  
+Password: `change-me` (or `HOSTLINE_OWNER_PASSWORD`)
 
-1. Create an agent in [Voice Agent Builder](https://console.x.ai/voice/agents).
-2. Add `XAI_API_KEY`, `XAI_AGENT_ID`, optional `XAI_PHONE_NUMBER`.
-3. Set `XAI_WEBHOOK_SECRET`.
-4. Point a REST tool named `create_lead` at `https://your-host/api/webhooks/xai` with header `x-hostline-secret`.
+**Client desks**
+- `desk@greenbank.clinic` / `clinic-desk`
+- `desk@mokoena.law` / `law-desk`
+- `desk@harbourview.co.za` / `estate-desk`
 
-Optional tool: `record_call` for call summaries.
+## Owner capabilities
+
+- Onboard clients with desk login + plan
+- Grok studio per client (agent id, phone, voice, prompt, live/pause)
+- Billing in ZAR (Starter / Practice / Firm), invoices, minute usage
+- Platform webhook + key checklist
+
+## Client desk
+
+- Plain-language line status
+- People who need a callback
+- Call summaries
+- Plan usage without technical setup
+
+## Grok webhook
+
+`POST /api/webhooks/xai` with header `x-hostline-secret`
+
+Tools: `create_lead`, `record_call` (resolves client by `clientId` or `toNumber`)
 
 ## Deploy
 
-Deploy the `hostline/` directory as its own Vercel (or similar) project. Do not deploy from the Aura root.
-
-## Status
-
-MVP desk + marketing site + Grok webhook contract. Persistence is in-memory for the warm process (fine for demos). Next step: Postgres and outbound dialing via Voice Agent API / SIP.
+Deploy `hostline/` as its own Vercel project.

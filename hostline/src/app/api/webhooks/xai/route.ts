@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createLead, getDeskSnapshot, recordCall } from "@/lib/store";
+import { createLead, findClientIdByPhone, getOwnerSnapshot, recordCall } from "@/lib/store";
 import { verifyWebhookSecret } from "@/lib/xai";
 
 const leadSchema = z.object({
   tool: z.literal("create_lead").optional(),
+  clientId: z.string().optional(),
+  toNumber: z.string().optional(),
   name: z.string().min(1),
   phone: z.string().min(3),
   email: z.string().email().optional().nullable(),
@@ -15,6 +17,7 @@ const leadSchema = z.object({
 
 const callSchema = z.object({
   tool: z.literal("record_call"),
+  clientId: z.string().optional(),
   direction: z.enum(["inbound", "outbound"]).default("inbound"),
   fromNumber: z.string(),
   toNumber: z.string(),
@@ -25,6 +28,16 @@ const callSchema = z.object({
   startedAt: z.string().optional(),
   endedAt: z.string().optional().nullable(),
 });
+
+function resolveClientId(explicit?: string, toNumber?: string) {
+  if (explicit) return explicit;
+  if (toNumber) {
+    const byPhone = findClientIdByPhone(toNumber);
+    if (byPhone) return byPhone;
+  }
+  const firstLive = getOwnerSnapshot().clients.find((c) => c.status === "live");
+  return firstLive?.id || getOwnerSnapshot().clients[0]?.id || null;
+}
 
 export async function POST(req: NextRequest) {
   if (!verifyWebhookSecret(req.headers.get("x-hostline-secret"))) {
@@ -45,7 +58,12 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid create_lead payload", details: parsed.error.flatten() }, { status: 400 });
     }
+    const clientId = resolveClientId(parsed.data.clientId, parsed.data.toNumber || json.to || json.to_number);
+    if (!clientId) {
+      return NextResponse.json({ error: "Could not resolve client" }, { status: 400 });
+    }
     const lead = createLead({
+      clientId,
       name: parsed.data.name,
       phone: parsed.data.phone,
       email: parsed.data.email,
@@ -54,7 +72,7 @@ export async function POST(req: NextRequest) {
       consent: parsed.data.consent,
       source: "phone_call",
     });
-    return NextResponse.json({ ok: true, leadId: lead.id });
+    return NextResponse.json({ ok: true, leadId: lead.id, clientId });
   }
 
   if (tool === "record_call") {
@@ -62,8 +80,13 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid record_call payload" }, { status: 400 });
     }
+    const clientId = resolveClientId(parsed.data.clientId, parsed.data.toNumber);
+    if (!clientId) {
+      return NextResponse.json({ error: "Could not resolve client" }, { status: 400 });
+    }
     const now = new Date().toISOString();
     const call = recordCall({
+      clientId,
       direction: parsed.data.direction,
       fromNumber: parsed.data.fromNumber,
       toNumber: parsed.data.toNumber,
@@ -74,16 +97,8 @@ export async function POST(req: NextRequest) {
       startedAt: parsed.data.startedAt ?? now,
       endedAt: parsed.data.endedAt ?? now,
     });
-    return NextResponse.json({ ok: true, callId: call.id });
+    return NextResponse.json({ ok: true, callId: call.id, clientId });
   }
 
-  return NextResponse.json({
-    ok: true,
-    ignored: true,
-    tool,
-    desk: {
-      leads: getDeskSnapshot().leads.length,
-      calls: getDeskSnapshot().calls.length,
-    },
-  });
+  return NextResponse.json({ ok: true, ignored: true, tool });
 }
