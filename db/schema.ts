@@ -1,7 +1,7 @@
-// ─── Core Entities ─────────────────────────────────────────────────────────────
+// ─── Core Entities ────────────────────────────────────────────────────────────────
 import { pgTable, text, timestamp, boolean, integer, pgEnum, uuid, serial } from "drizzle-orm/pg-core";
 
-// ─── Enums ────────────────────────────────────────────────────────────────────
+// ─── Enums ────────────────────────────────────────────────────────────────
 export const clientStatusEnum = pgEnum("client_status", ["active", "suspended", "churned"]);
 export const leadStatusEnum = pgEnum("lead_status", ["new", "contacted", "qualified", "converted", "lost"]);
 export const leadSourceEnum = pgEnum("lead_source", ["phone_call", "web", "referral", "manual"]);
@@ -9,8 +9,9 @@ export const callDirectionEnum = pgEnum("call_direction", ["inbound", "outbound"
 export const callOutcomeEnum = pgEnum("call_outcome", ["completed", "missed", "voicemail", "failed"]);
 export const taskStatusEnum = pgEnum("task_status", ["pending", "in_progress", "done"]);
 export const userRoleEnum = pgEnum("user_role", ["admin", "agent"]);
+export const bookingStatusEnum = pgEnum("booking_status", ["confirmed", "cancelled", "completed"]);
 
-// ─── Clients ──────────────────────────────────────────────────────────────────
+// ─── Clients ─────────────────────────────────────────────────────────────────────────
 export const clients = pgTable("clients", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -34,7 +35,7 @@ export const clientUsers = pgTable("client_users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ─── Hume Agents ──────────────────────────────────────────────────────────────
+// ─── Hume Agents ────────────────────────────────────────────────────────────────
 export const humeAgents = pgTable("hume_agents", {
   id: uuid("id").primaryKey().defaultRandom(),
   clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
@@ -46,7 +47,7 @@ export const humeAgents = pgTable("hume_agents", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// ─── Phone Numbers ─────────────────────────────────────────────────────────────
+// ─── Phone Numbers ────────────────────────────────────────────────────────────────
 export const phoneNumbers = pgTable("phone_numbers", {
   id: uuid("id").primaryKey().defaultRandom(),
   clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
@@ -58,7 +59,7 @@ export const phoneNumbers = pgTable("phone_numbers", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ─── Contacts ─────────────────────────────────────────────────────────────────
+// ─── Contacts ──────────────────────────────────────────────────────────────────────
 export const contacts = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
@@ -71,7 +72,7 @@ export const contacts = pgTable("contacts", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// ─── Leads ─────────────────────────────────────────────────────────────────────
+// ─── Leads ────────────────────────────────────────────────────────────────────
 export const leads = pgTable("leads", {
   id: uuid("id").primaryKey().defaultRandom(),
   clientId: uuid("client_id").references(() => clients.id, { onDelete: "cascade" }),
@@ -89,7 +90,7 @@ export const leads = pgTable("leads", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// ─── Calls ─────────────────────────────────────────────────────────────────────
+// ─── Calls ──────────────────────────────────────────────────────────────────────
 export const calls = pgTable("calls", {
   id: uuid("id").primaryKey().defaultRandom(),
   clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
@@ -108,7 +109,27 @@ export const calls = pgTable("calls", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ─── Tasks ─────────────────────────────────────────────────────────────────────
+// ─── Bookings (self-hosted calendar) ────────────────────────────────────────
+export const bookings = pgTable("bookings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").references(() => clients.id, { onDelete: "cascade" }),
+  contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+  leadId: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+  name: text("name"),
+  phone: text("phone"),
+  email: text("email"),
+  meetingType: text("meeting_type").notNull(),
+  title: text("title"),
+  startDateTime: timestamp("start_date_time").notNull(),
+  endDateTime: timestamp("end_date_time").notNull(),
+  status: bookingStatusEnum("status").default("confirmed"),
+  notes: text("notes"),
+  consent: boolean("consent").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─── Tasks ──────────────────────────────────────────────────────────────────────
 export const tasks = pgTable("tasks", {
   id: uuid("id").primaryKey().defaultRandom(),
   clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
@@ -122,14 +143,14 @@ export const tasks = pgTable("tasks", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// ─── Admin Credentials (persistent password) ─────────────────────────────────
+// ─── Admin Credentials (persistent password) ─────────────────────────────────────
 export const adminCredentials = pgTable("admin_credentials", {
   id: serial("id").primaryKey(),
   passwordHash: text("password_hash").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────────────────────
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
 export type Lead = typeof leads.$inferSelect;
@@ -141,3 +162,5 @@ export type HumeAgent = typeof humeAgents.$inferSelect;
 export type PhoneNumber = typeof phoneNumbers.$inferSelect;
 export type ClientUser = typeof clientUsers.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
+export type Booking = typeof bookings.$inferSelect;
+export type NewBooking = typeof bookings.$inferInsert;
