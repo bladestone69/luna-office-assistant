@@ -1,9 +1,9 @@
 import "server-only";
 import { DateTime } from "luxon";
-import { google } from "googleapis";
+import { and, eq, gte, lte, or } from "drizzle-orm";
+import { db } from "@/db";
+import { bookings } from "@/db/schema";
 import { APP_TIMEZONE } from "@/lib/constants";
-import { requiredEnv } from "@/lib/env";
-import { getGoogleJwt } from "@/lib/google-auth";
 import { getFirstName } from "@/lib/privacy";
 
 type BusySlot = {
@@ -11,32 +11,35 @@ type BusySlot = {
   end: string;
 };
 
-function getCalendarClient() {
-  const auth = getGoogleJwt(["https://www.googleapis.com/auth/calendar"]);
-  return google.calendar({ version: "v3", auth });
-}
-
-function calendarId() {
-  return requiredEnv("GOOGLE_CALENDAR_ID");
-}
-
 function overlaps(startA: DateTime, endA: DateTime, startB: DateTime, endB: DateTime) {
   return startA < endB && endA > startB;
 }
 
 export async function getBusySlots(startIso: string, endIso: string): Promise<BusySlot[]> {
-  const calendar = getCalendarClient();
-  const response = await calendar.freebusy.query({
-    requestBody: {
-      timeMin: startIso,
-      timeMax: endIso,
-      timeZone: APP_TIMEZONE,
-      items: [{ id: calendarId() }]
-    }
-  });
+  const start = DateTime.fromISO(startIso).toJSDate();
+  const end = DateTime.fromISO(endIso).toJSDate();
 
-  const busy = response.data.calendars?.[calendarId()]?.busy || [];
-  return busy.filter((item): item is BusySlot => Boolean(item.start && item.end));
+  const rows = await db
+    .select({
+      startDateTime: bookings.startDateTime,
+      endDateTime: bookings.endDateTime,
+    })
+    .from(bookings)
+    .where(
+      and(
+        eq(bookings.status, "confirmed"),
+        or(
+          and(gte(bookings.startDateTime, start), lte(bookings.startDateTime, end)),
+          and(gte(bookings.endDateTime, start), lte(bookings.endDateTime, end)),
+          and(lte(bookings.startDateTime, start), gte(bookings.endDateTime, end))
+        )
+      )
+    );
+
+  return rows.map((row) => ({
+    start: row.startDateTime.toISOString(),
+    end: row.endDateTime.toISOString(),
+  }));
 }
 
 export async function isSlotAvailable(startIso: string, endIso: string): Promise<boolean> {
@@ -105,25 +108,32 @@ export async function createPrivacySafeEvent(input: {
   meetingTypeLabel: string;
   startIso: string;
   endIso: string;
+  clientId?: string | null;
+  contactId?: string | null;
+  leadId?: string | null;
+  notes?: string;
+  consent?: boolean;
 }) {
-  const calendar = getCalendarClient();
   const summary = `Meeting - ${getFirstName(input.name)} - ${input.phone}`;
 
-  const event = await calendar.events.insert({
-    calendarId: calendarId(),
-    requestBody: {
-      summary,
-      description: `Scheduled via Luna Office Assistant.\nType: ${input.meetingTypeLabel}\nContact: ${input.name} | ${input.phone} | ${input.email}`,
-      start: {
-        dateTime: input.startIso,
-        timeZone: APP_TIMEZONE
-      },
-      end: {
-        dateTime: input.endIso,
-        timeZone: APP_TIMEZONE
-      }
-    }
-  });
+  const [inserted] = await db
+    .insert(bookings)
+    .values({
+      clientId: input.clientId || null,
+      contactId: input.contactId || null,
+      leadId: input.leadId || null,
+      name: input.name,
+      phone: input.phone,
+      email: input.email,
+      meetingType: input.meetingTypeLabel,
+      title: summary,
+      startDateTime: DateTime.fromISO(input.startIso).toJSDate(),
+      endDateTime: DateTime.fromISO(input.endIso).toJSDate(),
+      status: "confirmed",
+      notes: input.notes || `Scheduled via Aura. Type: ${input.meetingTypeLabel}`,
+      consent: input.consent ?? false,
+    })
+    .returning({ id: bookings.id });
 
-  return event.data.id || "";
+  return inserted?.id || "";
 }
