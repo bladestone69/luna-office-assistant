@@ -16,10 +16,6 @@ import { appendSheetRow, isSheetsConfigured } from "@/lib/sheets";
 import { bookingSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
-  if (!isSheetsConfigured()) {
-    return fail("Google Sheets integration is not configured.", 503);
-  }
-
   const limited = enforceRateLimit(request, "bookings");
   if (limited) return limited;
 
@@ -68,30 +64,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const calendarEventId = await createPrivacySafeEvent({
+    const bookingId = await createPrivacySafeEvent({
       name: safeName,
       phone: parsed.data.phone,
       email: parsed.data.email,
       meetingTypeLabel: meeting.label,
       startIso,
-      endIso
+      endIso,
+      consent: parsed.data.consent,
     });
 
     const createdAt = new Date().toISOString();
     const consentAt = createdAt;
 
-    await appendSheetRow(SHEET_TABS.bookings, [
-      createdAt,
-      safeName,
-      parsed.data.phone,
-      parsed.data.email,
-      meeting.label,
-      startIso,
-      endIso,
-      calendarEventId,
-      String(parsed.data.consent),
-      consentAt
-    ]);
+    // Optional Sheets backup if still configured
+    if (isSheetsConfigured()) {
+      await appendSheetRow(SHEET_TABS.bookings, [
+        createdAt,
+        safeName,
+        parsed.data.phone,
+        parsed.data.email,
+        meeting.label,
+        startIso,
+        endIso,
+        bookingId,
+        String(parsed.data.consent),
+        consentAt
+      ]);
+    }
 
     await Promise.all([
       sendEmail({
@@ -116,16 +116,18 @@ export async function POST(request: NextRequest) {
           `Type: ${meeting.label}`,
           `Start: ${startIso} (${APP_TIMEZONE})`,
           `End: ${endIso} (${APP_TIMEZONE})`,
-          `Calendar event id: ${calendarEventId}`,
+          `Booking id: ${bookingId}`,
           `Consent timestamp: ${consentAt}`
         ].join("\n")
       })
     ]);
 
     return NextResponse.json({
-      message: "Booking confirmed. A confirmation email has been sent."
+      message: "Booking confirmed. A confirmation email has been sent.",
+      bookingId
     });
-  } catch {
+  } catch (err) {
+    console.error("Booking error:", err);
     return fail("Could not create booking. Please try again.", 500);
   }
 }
