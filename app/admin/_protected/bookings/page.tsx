@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { desc } from "drizzle-orm";
 import { db } from "@/db";
-import { bookings } from "@/db/schema";
+import { bookings, type Booking } from "@/db/schema";
 import { DateTime } from "luxon";
 import { APP_TIMEZONE } from "@/lib/constants";
 
@@ -12,7 +12,7 @@ function formatWhen(date: Date | null | undefined) {
 }
 
 export default async function AdminBookingsPage() {
-  let rows: Awaited<ReturnType<typeof db.select>> = [];
+  let rows: Booking[] = [];
   let error: string | null = null;
 
   try {
