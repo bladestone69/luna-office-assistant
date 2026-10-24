@@ -5,6 +5,7 @@ import { clients, grokNumbers, humeAgents, leads, phoneNumbers } from "@/db/sche
 import { createPrivacySafeEvent, isSlotAvailable } from "@/lib/calendar";
 import { DateTime } from "luxon";
 import { APP_TIMEZONE } from "@/lib/constants";
+import { workBriefForClient } from "@/lib/desk-context";
 
 export type GrokCallConfig = {
   clientId: string | null;
@@ -97,6 +98,7 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
   const opening = greeting.trim()
     ? `Start the call by saying: ${greeting.trim()}\n`
     : "";
+  const work = clientId ? await workBriefForClient(clientId) : "";
 
   return {
     clientId,
@@ -104,7 +106,7 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
     voice,
     from,
     to,
-    instructions: `${opening}${base}\nCaller number: ${from || "unknown"}. Business: ${businessName}. Times are Africa/Johannesburg.`,
+    instructions: `${opening}${base}\nCaller number: ${from || "unknown"}. Business: ${businessName}. Times are Africa/Johannesburg.\n${work}`,
   };
 }
 
@@ -234,7 +236,7 @@ async function runTool(name: string, args: any, config: GrokCallConfig) {
     if (!start.isValid) return { ok: false, error: "Invalid start time" };
     const minutes = Number(args.duration_minutes) > 0 ? Number(args.duration_minutes) : 30;
     const end = start.plus({ minutes });
-    const free = await isSlotAvailable(start.toISO()!, end.toISO()!);
+    const free = await isSlotAvailable(start.toISO()!, end.toISO()!, config.clientId);
     if (!free) return { ok: false, error: "That time is already booked" };
     const id = await createPrivacySafeEvent({
       name: String(args.name || "Caller"),

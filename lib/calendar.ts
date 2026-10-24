@@ -15,9 +15,14 @@ function overlaps(startA: DateTime, endA: DateTime, startB: DateTime, endB: Date
   return startA < endB && endA > startB;
 }
 
-export async function getBusySlots(startIso: string, endIso: string): Promise<BusySlot[]> {
+export async function getBusySlots(startIso: string, endIso: string, clientId?: string | null): Promise<BusySlot[]> {
   const start = DateTime.fromISO(startIso).toJSDate();
   const end = DateTime.fromISO(endIso).toJSDate();
+  const windowFilter = or(
+    and(gte(bookings.startDateTime, start), lte(bookings.startDateTime, end)),
+    and(gte(bookings.endDateTime, start), lte(bookings.endDateTime, end)),
+    and(lte(bookings.startDateTime, start), gte(bookings.endDateTime, end)),
+  );
 
   const rows = await db
     .select({
@@ -26,14 +31,9 @@ export async function getBusySlots(startIso: string, endIso: string): Promise<Bu
     })
     .from(bookings)
     .where(
-      and(
-        eq(bookings.status, "confirmed"),
-        or(
-          and(gte(bookings.startDateTime, start), lte(bookings.startDateTime, end)),
-          and(gte(bookings.endDateTime, start), lte(bookings.endDateTime, end)),
-          and(lte(bookings.startDateTime, start), gte(bookings.endDateTime, end))
-        )
-      )
+      clientId
+        ? and(eq(bookings.status, "confirmed"), eq(bookings.clientId, clientId), windowFilter)
+        : and(eq(bookings.status, "confirmed"), windowFilter),
     );
 
   return rows.map((row) => ({
@@ -42,8 +42,8 @@ export async function getBusySlots(startIso: string, endIso: string): Promise<Bu
   }));
 }
 
-export async function isSlotAvailable(startIso: string, endIso: string): Promise<boolean> {
-  const busySlots = await getBusySlots(startIso, endIso);
+export async function isSlotAvailable(startIso: string, endIso: string, clientId?: string | null): Promise<boolean> {
+  const busySlots = await getBusySlots(startIso, endIso, clientId);
   const candidateStart = DateTime.fromISO(startIso).setZone(APP_TIMEZONE);
   const candidateEnd = DateTime.fromISO(endIso).setZone(APP_TIMEZONE);
 

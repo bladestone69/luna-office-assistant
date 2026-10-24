@@ -6,6 +6,9 @@
   "functions": {
     "app/api/webhooks/xai/sip/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/client/ask/route.ts": {
+      "maxDuration": 60
     }
   }
 }
