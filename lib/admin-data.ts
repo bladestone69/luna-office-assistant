@@ -68,6 +68,9 @@ function mapAgent(row: typeof humeAgents.$inferSelect): HumeAgent {
     greetingScript: row.greetingScript ?? "",
     systemPrompt: row.systemPrompt ?? "",
     status: "active",
+    voiceProvider: row.voiceProvider === "hume" ? "hume" : "grok",
+    grokVoice: row.grokVoice || "eve",
+    grokInstructions: row.grokInstructions ?? "",
   };
 }
 

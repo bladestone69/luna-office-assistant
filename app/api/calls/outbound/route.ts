@@ -3,9 +3,8 @@ import { cookies } from "next/headers";
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
 import { clients, humeAgents, phoneNumbers } from "@/db/schema";
-import { verifyAdminSession } from "@/lib/auth";
-
-const ADMIN_COOKIE = "admin_session";
+import { ADMIN_COOKIE, verifyAdminSession } from "@/lib/auth";
+import { grokSipTwiml, normalizePhone } from "@/lib/grok-call";
 
 async function authenticate(req: NextRequest) {
   const token = cookies().get(ADMIN_COOKIE)?.value;
@@ -68,12 +67,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const greetingText = greeting ?? `Hello, connecting you to ${client.name}. Please hold.`;
+  const greetingText = greeting ?? `Hello, this is ${client.name}. Please hold while I connect you.`;
   const appUrl = process.env.APP_URL ?? "https://www.auraoffice.xyz";
-
-  // TwiML URL: when Twilio answers, it fetches this to get voice instructions
-  // We return TwiML that says the greeting then dials the Hume EVI number
-  const twimlUrl = `${appUrl}/api/webhooks/twilio/twiml-outbound?greeting=${encodeURIComponent(greetingText)}&humePhone=${encodeURIComponent(humePhone)}`;
+  const useGrok = agent?.voiceProvider !== "hume" && Boolean(process.env.XAI_API_KEY);
+  const sipNumber = normalizePhone(fromNumber);
+  const twimlUrl = useGrok
+    ? `${appUrl}/api/webhooks/twilio/twiml-outbound?provider=grok&greeting=${encodeURIComponent(greetingText)}&sipNumber=${encodeURIComponent(sipNumber)}`
+    : `${appUrl}/api/webhooks/twilio/twiml-outbound?greeting=${encodeURIComponent(greetingText)}&humePhone=${encodeURIComponent(humePhone)}`;
 
   // Create outbound call via Twilio REST API
   const credentials = Buffer.from(`${accountSid}:${authToken}`).toString("base64");

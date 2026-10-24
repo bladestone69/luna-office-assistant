@@ -43,8 +43,20 @@ export const humeAgents = pgTable("hume_agents", {
   humeConfigId: text("hume_config_id").notNull(),
   systemPrompt: text("system_prompt"),
   greetingScript: text("greeting_script"),
+  voiceProvider: text("voice_provider").default("grok"),
+  grokVoice: text("grok_voice").default("eve"),
+  grokInstructions: text("grok_instructions"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const grokNumbers = pgTable("grok_numbers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").references(() => clients.id, { onDelete: "cascade" }),
+  phoneNumber: text("phone_number").notNull().unique(),
+  xaiPhoneNumberId: text("xai_phone_number_id"),
+  webhookSecret: text("webhook_secret"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // ─── Phone Numbers ────────────────────────────────────────────────────────────────

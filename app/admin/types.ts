@@ -24,6 +24,9 @@ export interface HumeAgent {
   greetingScript?: string;
   systemPrompt?: string;
   status: "active" | "paused";
+  voiceProvider?: "grok" | "hume";
+  grokVoice?: string;
+  grokInstructions?: string;
 }
 
 export interface PhoneNumber {

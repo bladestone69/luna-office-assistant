@@ -1,20 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
+import { grokSipTwiml } from "@/lib/grok-call";
 
-// Returns TwiML that greets then connects the call to Hume EVI
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const greeting = searchParams.get("greeting") ?? "Please hold while I connect you.";
-  const humePhone = searchParams.get("humePhone") ?? "";
+  return twiml(req);
+}
 
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say voice="Polly.Joanna">${greeting}</Say>
-  <Dial record="record-from-ringing" recordingStatusCallback="${process.env.APP_URL ?? "https://www.auraoffice.xyz"}/api/webhooks/twilio/recording">
-    <Number statusCallbackEvent="initiated ringing answered completed" statusCallback="${process.env.APP_URL ?? "https://www.auraoffice.xyz"}/api/webhooks/twilio/status">${humePhone}</Number>
-  </Dial>
-</Response>`;
+export async function POST(req: NextRequest) {
+  return twiml(req);
+}
 
-  return new NextResponse(twiml, {
-    headers: { "Content-Type": "text/xml" },
-  });
+function twiml(req: NextRequest) {
+  const greeting = req.nextUrl.searchParams.get("greeting") ?? "";
+  const provider = req.nextUrl.searchParams.get("provider");
+  const sipNumber = req.nextUrl.searchParams.get("sipNumber") ?? "";
+  const humePhone = req.nextUrl.searchParams.get("humePhone") ?? "";
+  const say = greeting ? `<Say>${escapeXml(greeting)}</Say>` : "";
+  const dial = provider === "grok"
+    ? (grokSipTwiml(sipNumber).match(/<Dial[\s\S]*<\/Dial>/)?.[0] ?? "")
+    : `<Dial><Number>${escapeXml(humePhone)}</Number></Dial>`;
+  return new NextResponse(
+    `<?xml version="1.0" encoding="UTF-8"?><Response>${say}${dial}</Response>`,
+    { headers: { "Content-Type": "text/xml" } },
+  );
+}
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "\u0026amp;")
+    .replace(/</g, "\u0026lt;")
+    .replace(/>/g, "\u0026gt;");
 }

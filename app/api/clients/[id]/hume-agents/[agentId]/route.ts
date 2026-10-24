@@ -20,18 +20,24 @@ export async function PUT(
     const configId = typeof body?.configId === "string" ? body.configId.trim() : "";
     const systemPrompt = typeof body?.systemPrompt === "string" ? body.systemPrompt.trim() : "";
     const greetingScript = typeof body?.greetingScript === "string" ? body.greetingScript.trim() : "";
+    const voiceProvider = body?.voiceProvider === "hume" ? "hume" : "grok";
+    const grokVoice = typeof body?.grokVoice === "string" && body.grokVoice.trim() ? body.grokVoice.trim() : "eve";
+    const grokInstructions = typeof body?.grokInstructions === "string" ? body.grokInstructions.trim() : "";
 
-    if (!name || !configId) {
-      return NextResponse.json({ error: "Agent name and config ID are required" }, { status: 400 });
+    if (!name || (voiceProvider === "hume" && !configId)) {
+      return NextResponse.json({ error: "Agent name is required. Hume backup also needs a config ID." }, { status: 400 });
     }
 
     const [agent] = await db
       .update(humeAgents)
       .set({
         name,
-        humeConfigId: configId,
+        humeConfigId: configId || "hume-backup",
         systemPrompt: systemPrompt || null,
         greetingScript: greetingScript || null,
+        voiceProvider,
+        grokVoice,
+        grokInstructions: grokInstructions || null,
         updatedAt: new Date(),
       })
       .where(and(eq(humeAgents.id, agentId), eq(humeAgents.clientId, id)))
@@ -48,6 +54,9 @@ export async function PUT(
       configId: agent.humeConfigId,
       systemPrompt: agent.systemPrompt ?? "",
       greetingScript: agent.greetingScript ?? "",
+      voiceProvider: agent.voiceProvider === "hume" ? "hume" : "grok",
+      grokVoice: agent.grokVoice || "eve",
+      grokInstructions: agent.grokInstructions ?? "",
       status: "active",
     });
   } catch (error) {

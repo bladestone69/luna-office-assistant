@@ -41,8 +41,6 @@ type DefaultSettings = {
   trialPeriod: string;
 };
 
-type IntegrationState = Record<string, boolean>;
-
 const SECTIONS: { id: AdminSection; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "clients", label: "Clients" },
@@ -55,7 +53,7 @@ const SECTIONS: { id: AdminSection; label: string }[] = [
 
 const CLIENT_TABS = [
   "Overview",
-  "Hume Agent",
+  "Voice",
   "Numbers",
   "Contacts",
   "Leads",
@@ -64,7 +62,6 @@ const CLIENT_TABS = [
 ] as const;
 
 const STORAGE_KEYS = {
-  integrations: "luna_admin_integrations",
   profile: "luna_admin_profile",
   defaults: "luna_admin_defaults",
 };
@@ -80,10 +77,10 @@ const DEFAULT_APP_SETTINGS: DefaultSettings = {
 };
 
 const INTEGRATIONS = [
-  { name: "Trello", desc: "Auto-create cards for new leads", icon: "TR" },
-  { name: "Slack", desc: "Notify team of missed calls", icon: "SL" },
-  { name: "Google Calendar", desc: "Sync availability with EVI", icon: "GC" },
-  { name: "Zapier", desc: "Connect to 5,000+ apps", icon: "ZA" },
+  { name: "Grok Voice", desc: "Primary answering brain for inbound and outbound calls", icon: "GX" },
+  { name: "Hume AI", desc: "Backup only, used when a client is set to Hume or the Grok key is missing", icon: "HM" },
+  { name: "Aura Calendar", desc: "Appointments stay in Aura. Google Calendar is not used", icon: "AC" },
+  { name: "Trello", desc: "Optional cards for new leads", icon: "TR" },
 ];
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -662,7 +659,7 @@ function ClientDetailSection({
         </OverviewTab>
       )}
 
-      {detail && activeTab === "Hume Agent" && (
+      {detail && activeTab === "Voice" && (
         <HumeAgentTab
           clientId={detail.client.id}
           agents={detail.humeAgents}
@@ -967,9 +964,24 @@ function HumeAgentTab({
   onChanged: () => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", configId: "", systemPrompt: "", greetingScript: "" });
+  const [form, setForm] = useState({
+    name: "",
+    configId: "",
+    systemPrompt: "",
+    greetingScript: "",
+    voiceProvider: "grok" as "grok" | "hume",
+    grokVoice: "eve",
+    grokInstructions: "",
+  });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<AdminMessage | null>(null);
+  const [grokReady, setGrokReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    apiRequest<{ grok: boolean }>("/api/admin/grok/status")
+      .then((status) => setGrokReady(status.grok))
+      .catch(() => setGrokReady(null));
+  }, []);
 
   function startEdit(agent?: HumeAgent) {
     setMessage(null);
@@ -977,36 +989,51 @@ function HumeAgentTab({
       setEditingId(agent.id);
       setForm({
         name: agent.name,
-        configId: agent.configId,
+        configId: agent.configId === "hume-backup" ? "" : agent.configId,
         systemPrompt: agent.systemPrompt ?? "",
         greetingScript: agent.greetingScript ?? "",
+        voiceProvider: agent.voiceProvider === "hume" ? "hume" : "grok",
+        grokVoice: agent.grokVoice || "eve",
+        grokInstructions: agent.grokInstructions || agent.systemPrompt || "",
       });
       return;
     }
 
     setEditingId("new");
-    setForm({ name: "", configId: "", systemPrompt: "", greetingScript: "" });
+    setForm({
+      name: "",
+      configId: "",
+      systemPrompt: "",
+      greetingScript: "",
+      voiceProvider: "grok",
+      grokVoice: "eve",
+      grokInstructions: "",
+    });
   }
 
   async function save() {
     setMessage(null);
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        systemPrompt: form.grokInstructions || form.systemPrompt,
+      };
       if (editingId === "new") {
         await apiRequest(`/api/clients/${clientId}/hume-agents`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         });
       } else if (editingId) {
         await apiRequest(`/api/clients/${clientId}/hume-agents/${editingId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         });
       }
 
-      setMessage({ type: "success", text: "Agent saved." });
+      setMessage({ type: "success", text: "Voice agent saved." });
       setEditingId(null);
       onChanged();
     } catch (error) {
@@ -1016,58 +1043,91 @@ function HumeAgentTab({
     }
   }
 
+  const humeSelected = form.voiceProvider === "hume";
+
   return (
     <div className={styles.tabContent}>
       <div className={styles.tabHeader}>
-        <h2 className={styles.tabTitle}>Hume AI Agents</h2>
+        <h2 className={styles.tabTitle}>Voice agent</h2>
         <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={() => startEdit()} type="button">
           + New Agent
         </button>
       </div>
+      <p className={styles.emptyState} style={{ textAlign: "left" }}>
+        Grok answers the call, takes a message, and books into the Aura calendar. Hume is only the backup.
+        {grokReady === false ? " The xAI key is not on the server yet, so a live call still cannot reach Grok." : ""}
+        {grokReady === true ? " The xAI key is set." : ""}
+      </p>
 
-      {!agents.length && <p className={styles.emptyState}>No Hume agents saved for this client yet.</p>}
+      {!agents.length && <p className={styles.emptyState}>No voice agent saved for this client yet.</p>}
 
       {agents.map((agent) => (
         <div key={agent.id} className={styles.agentCard}>
           <div className={styles.agentCardHeader}>
             <div>
               <p className={styles.agentName}>{agent.name}</p>
-              <p className={styles.agentConfigId}>{agent.configId}</p>
+              <p className={styles.agentConfigId}>
+                {agent.voiceProvider === "hume"
+                  ? `Hume backup · ${agent.configId}`
+                  : `Grok · ${agent.grokVoice || "eve"}`}
+              </p>
             </div>
             <button className={styles.btnGhost} style={{ fontSize: 12 }} onClick={() => startEdit(agent)} type="button">
               Edit
             </button>
           </div>
-          {agent.systemPrompt && <p className={styles.agentPrompt}>{agent.systemPrompt}</p>}
+          {(agent.grokInstructions || agent.systemPrompt) && (
+            <p className={styles.agentPrompt}>{agent.grokInstructions || agent.systemPrompt}</p>
+          )}
         </div>
       ))}
 
       {editingId !== null && (
         <div className={styles.editForm}>
-          <h3 className={styles.editFormTitle}>{editingId === "new" ? "New Agent" : "Edit Agent"}</h3>
+          <h3 className={styles.editFormTitle}>{editingId === "new" ? "New voice agent" : "Edit voice agent"}</h3>
           <div className={styles.formGrid}>
             <div className={styles.formField}>
               <label className={styles.fieldLabel}>Agent name</label>
               <input className="input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Receptionist" />
             </div>
             <div className={styles.formField}>
-              <label className={styles.fieldLabel}>Hume Config ID</label>
-              <input className="input" value={form.configId} onChange={(event) => setForm((current) => ({ ...current, configId: event.target.value }))} placeholder="hume-prod-xxx" />
+              <label className={styles.fieldLabel}>Who answers</label>
+              <select className="input" value={form.voiceProvider} onChange={(event) => setForm((current) => ({ ...current, voiceProvider: event.target.value === "hume" ? "hume" : "grok" }))}>
+                <option value="grok">Grok (primary)</option>
+                <option value="hume">Hume (backup)</option>
+              </select>
             </div>
           </div>
+          {!humeSelected && (
+            <div className={styles.formField}>
+              <label className={styles.fieldLabel}>Grok voice</label>
+              <select className="input" value={form.grokVoice} onChange={(event) => setForm((current) => ({ ...current, grokVoice: event.target.value }))}>
+                <option value="eve">Eve</option>
+                <option value="ara">Ara</option>
+                <option value="rex">Rex</option>
+                <option value="sal">Sal</option>
+              </select>
+            </div>
+          )}
+          {humeSelected && (
+            <div className={styles.formField}>
+              <label className={styles.fieldLabel}>Hume config ID</label>
+              <input className="input" value={form.configId} onChange={(event) => setForm((current) => ({ ...current, configId: event.target.value }))} placeholder="Only needed for the Hume backup" />
+            </div>
+          )}
           <div className={styles.formField}>
-            <label className={styles.fieldLabel}>System prompt</label>
-            <textarea className="input" style={{ minHeight: 100 }} value={form.systemPrompt} onChange={(event) => setForm((current) => ({ ...current, systemPrompt: event.target.value }))} placeholder="Describe the agent behavior..." />
+            <label className={styles.fieldLabel}>{humeSelected ? "Backup prompt" : "What Grok should do"}</label>
+            <textarea className="input" style={{ minHeight: 100 }} value={form.grokInstructions} onChange={(event) => setForm((current) => ({ ...current, grokInstructions: event.target.value }))} placeholder="Answer for this business, take a message, or book a time." />
           </div>
           <div className={styles.formField}>
-            <label className={styles.fieldLabel}>Greeting script</label>
-            <textarea className="input" style={{ minHeight: 80 }} value={form.greetingScript} onChange={(event) => setForm((current) => ({ ...current, greetingScript: event.target.value }))} placeholder="What the AI says when the call connects..." />
+            <label className={styles.fieldLabel}>Opening line</label>
+            <textarea className="input" style={{ minHeight: 80 }} value={form.greetingScript} onChange={(event) => setForm((current) => ({ ...current, greetingScript: event.target.value }))} placeholder="Good day, you have reached..." />
           </div>
           <div className={styles.formActions}>
             <button className={styles.btnGhost} onClick={() => setEditingId(null)} type="button">
               Cancel
             </button>
-            <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={() => void save()} disabled={!form.name || !form.configId || saving} type="button">
+            <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={() => void save()} disabled={!form.name || saving || (humeSelected && !form.configId)} type="button">
               {saving ? "Saving..." : "Save"}
             </button>
           </div>
@@ -1097,7 +1157,25 @@ function NumbersTab({
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ twilioNumber: "", humeAgentId: "", isPrimary: false });
   const [saving, setSaving] = useState(false);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
   const [message, setMessage] = useState<AdminMessage | null>(null);
+
+  async function connectGrok(number: string) {
+    setMessage(null);
+    setConnectingId(number);
+    try {
+      const result = await apiRequest<{ sipUri: string }>("/api/admin/grok/connect-number", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: number, clientId }),
+      });
+      setMessage({ type: "success", text: `Registered with Grok. Calls route to ${result.sipUri}` });
+    } catch (error) {
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "Could not connect this number to Grok" });
+    } finally {
+      setConnectingId(null);
+    }
+  }
 
   async function addNumber() {
     setMessage(null);
@@ -1159,6 +1237,15 @@ function NumbersTab({
                 {agent ? ` · Agent: ${agent.name}` : ""}
               </p>
             </div>
+            <button
+              className={styles.btnGhost}
+              style={{ fontSize: 12 }}
+              type="button"
+              disabled={connectingId === numberItem.number}
+              onClick={() => void connectGrok(numberItem.number)}
+            >
+              {connectingId === numberItem.number ? "Connecting..." : "Connect to Grok"}
+            </button>
           </div>
         );
       })}
@@ -1534,27 +1621,35 @@ function UsageSection({
 }
 
 function IntegrationsSection() {
-  const [connections, setConnections] = useState<IntegrationState>({});
+  const [status, setStatus] = useState<{ grok: boolean; hume: boolean; twilio: boolean } | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    setConnections(loadStoredValue<IntegrationState>(STORAGE_KEYS.integrations, {}));
+    apiRequest<{ grok: boolean; hume: boolean; twilio: boolean }>("/api/admin/grok/status")
+      .then(setStatus)
+      .catch((reason) => setError(reason instanceof Error ? reason.message : "Could not read integration status"));
   }, []);
 
-  function toggleIntegration(name: string) {
-    setConnections((current) => {
-      const next = { ...current, [name]: !current[name] };
-      saveStoredValue(STORAGE_KEYS.integrations, next);
-      return next;
-    });
-  }
+  const stateFor = (name: string) => {
+    if (name === "Aura Calendar") return "Built in";
+    if (name === "Trello") return "Optional";
+    if (!status) return "Checking";
+    if (name === "Grok Voice") return status.grok ? "Key set" : "Needs XAI_API_KEY";
+    if (name === "Hume AI") return status.hume ? "Backup ready" : "Not configured";
+    return "Optional";
+  };
 
   return (
     <div className={styles.section}>
       <h1 className={styles.pageTitle}>Global Integrations</h1>
-      <p className={styles.sectionDesc}>Connect tools that apply across all clients.</p>
+      <p className={styles.sectionDesc}>
+        Grok is the receptionist. Hume stays as backup. Appointments are stored in Aura, not Google Calendar.
+        {status && !status.twilio ? " Twilio is not configured, so calls cannot be placed yet." : ""}
+      </p>
+      {error && <p className={styles.emptyState}>{error}</p>}
       <div className={styles.intGrid}>
         {INTEGRATIONS.map((item) => {
-          const connected = connections[item.name] === true;
+          const state = stateFor(item.name);
           return (
             <div key={item.name} className={styles.intCard}>
               <div className={styles.intIcon}>{item.icon}</div>
@@ -1562,14 +1657,7 @@ function IntegrationsSection() {
                 <p className={styles.intName}>{item.name}</p>
                 <p className={styles.intDesc}>{item.desc}</p>
               </div>
-              <button
-                className={styles.btnAccent}
-                style={{ fontSize: 12, padding: "6px 14px", whiteSpace: "nowrap" }}
-                onClick={() => toggleIntegration(item.name)}
-                type="button"
-              >
-                {connected ? "Connected" : "Connect"}
-              </button>
+              <span className="tag tag-blue" style={{ fontSize: 11, whiteSpace: "nowrap" }}>{state}</span>
             </div>
           );
         })}
