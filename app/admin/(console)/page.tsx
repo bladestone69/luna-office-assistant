@@ -15,7 +15,7 @@ import type {
   ClientUser,
   HumeAgent,
   PhoneNumber,
-} from "./types";
+} from "../types";
 
 type AdminSection =
   | "dashboard"
