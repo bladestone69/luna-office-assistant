@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import styles from "./page.module.css";
 import type {
@@ -196,10 +197,12 @@ function downloadUsageCsv(clients: Client[]) {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   const [section, setSection] = useState<AdminSection>("clients");
   const [clients, setClients] = useState<Client[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [clientsError, setClientsError] = useState("");
+  const [authChecked, setAuthChecked] = useState(false);
   const [allLeads, setAllLeads] = useState<AdminGlobalLead[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [leadsError, setLeadsError] = useState("");
@@ -219,8 +222,15 @@ export default function AdminPage() {
     try {
       const nextClients = await apiRequest<Client[]>("/api/clients");
       setClients(nextClients);
+      setAuthChecked(true);
     } catch (error) {
-      setClientsError(error instanceof Error ? error.message : "Failed to load clients");
+      const msg = error instanceof Error ? error.message : "Failed to load clients";
+      if (msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("401")) {
+        router.replace("/admin/login");
+        return;
+      }
+      setClientsError(msg);
+      setAuthChecked(true);
     } finally {
       setLoadingClients(false);
     }
@@ -284,6 +294,18 @@ export default function AdminPage() {
     selectedDetail?.client ??
     clients.find((client) => client.id === selectedClientId) ??
     null;
+
+  if (!authChecked && loadingClients) {
+    return (
+      <div className={styles.layout}>
+        <main className={styles.main}>
+          <div className={styles.content}>
+            <p className={styles.emptyState}>Checking access...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.layout}>
