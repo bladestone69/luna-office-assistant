@@ -147,7 +147,7 @@ async function complete(apiKey: string, messages: unknown[], withTools: boolean)
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "grok-4",
+      model: "grok-4.20-0309-non-reasoning",
       temperature: 0.4,
       messages,
       ...(withTools ? { tools: TOOLS, tool_choice: "auto" } : {}),
