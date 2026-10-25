@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readClientSession } from "@/lib/client-access";
 import {
   addGrokPrompt,
+  cleanAudience,
   deleteGrokPrompt,
   getGrokSetup,
   makeDefaultPrompt,
@@ -16,7 +17,7 @@ async function act(clientId: string, body: any) {
     return;
   }
   if (action === "add-prompt") {
-    await addGrokPrompt(clientId, String(body?.name || ""), String(body?.body || ""), body?.makeDefault === true);
+    await addGrokPrompt(clientId, String(body?.name || ""), String(body?.body || ""), body?.makeDefault === true, cleanAudience(body?.audience));
     return;
   }
   if (action === "update-prompt") {

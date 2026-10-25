@@ -35,11 +35,17 @@ export const GROK_VOICES = [
   ["zenith", "Zenith", "male"],
 ] as const;
 
-const VOICE_IDS = new Set<string>(GROK_VOICES.map((voice) => voice[0]));
+export type PromptAudience = "call" | "session";
+
+export function cleanAudience(value: unknown): PromptAudience {
+  return value === "session" ? "session" : "call";
+}
 
 export function cleanVoice(value: string) {
   return VOICE_IDS.has(value) ? value : "eve";
 }
+
+const VOICE_IDS = new Set<string>(GROK_VOICES.map((voice) => voice[0]));
 
 async function ensureAgent(clientId: string) {
   const [existing] = await db.select().from(humeAgents).where(eq(humeAgents.clientId, clientId)).orderBy(desc(humeAgents.createdAt)).limit(1);
@@ -60,7 +66,6 @@ async function ensureAgent(clientId: string) {
 export async function getGrokSetup(clientId: string) {
   const agent = await ensureAgent(clientId);
   const prompts = await db.select().from(grokPrompts).where(eq(grokPrompts.clientId, clientId)).orderBy(desc(grokPrompts.isDefault), desc(grokPrompts.updatedAt));
-  const current = prompts.find((prompt) => prompt.isDefault) || prompts[0] || null;
   return {
     voice: agent.grokVoice || "eve",
     greeting: agent.greetingScript || "",
@@ -71,9 +76,11 @@ export async function getGrokSetup(clientId: string) {
       id: prompt.id,
       name: prompt.name,
       body: prompt.body,
+      audience: prompt.audience === "session" ? "session" : "call",
       isDefault: Boolean(prompt.isDefault),
     })),
-    defaultPromptId: current?.id || "",
+    defaultCallId: prompts.find((prompt) => prompt.audience !== "session" && prompt.isDefault)?.id || "",
+    defaultSessionId: prompts.find((prompt) => prompt.audience === "session" && prompt.isDefault)?.id || "",
   };
 }
 
@@ -90,20 +97,26 @@ export async function saveGrokVoice(clientId: string, voice: string, greeting: s
     .where(eq(humeAgents.id, agent.id));
 }
 
-export async function addGrokPrompt(clientId: string, name: string, body: string, makeDefault: boolean) {
+export async function addGrokPrompt(clientId: string, name: string, body: string, makeDefault: boolean, audience: PromptAudience = "call") {
   const title = name.trim().slice(0, 80);
   const text = body.trim().slice(0, 4000);
   if (!title || !text) throw new Error("A prompt needs a name and the words Grok should follow.");
-  const existing = await db.select({ id: grokPrompts.id }).from(grokPrompts).where(eq(grokPrompts.clientId, clientId));
+  const existing = await db
+    .select({ id: grokPrompts.id })
+    .from(grokPrompts)
+    .where(and(eq(grokPrompts.clientId, clientId), eq(grokPrompts.audience, audience)));
   const isDefault = makeDefault || existing.length === 0;
   if (isDefault) {
-    await db.update(grokPrompts).set({ isDefault: false, updatedAt: new Date() }).where(eq(grokPrompts.clientId, clientId));
+    await db
+      .update(grokPrompts)
+      .set({ isDefault: false, updatedAt: new Date() })
+      .where(and(eq(grokPrompts.clientId, clientId), eq(grokPrompts.audience, audience)));
   }
   const [prompt] = await db
     .insert(grokPrompts)
-    .values({ clientId, name: title, body: text, isDefault })
+    .values({ clientId, name: title, body: text, isDefault, audience })
     .returning();
-  if (isDefault) await applyDefault(clientId, text);
+  if (isDefault && audience === "call") await applyDefault(clientId, text);
   return prompt.id;
 }
 
@@ -117,7 +130,7 @@ export async function updateGrokPrompt(clientId: string, promptId: string, name:
     .where(and(eq(grokPrompts.id, promptId), eq(grokPrompts.clientId, clientId)))
     .returning();
   if (!prompt) return false;
-  if (prompt.isDefault) await applyDefault(clientId, text);
+  if (prompt.isDefault && prompt.audience !== "session") await applyDefault(clientId, text);
   return true;
 }
 
@@ -128,10 +141,15 @@ export async function deleteGrokPrompt(clientId: string, promptId: string) {
     .returning();
   if (!prompt) return false;
   if (prompt.isDefault) {
-    const [next] = await db.select().from(grokPrompts).where(eq(grokPrompts.clientId, clientId)).orderBy(desc(grokPrompts.updatedAt)).limit(1);
+    const [next] = await db
+      .select()
+      .from(grokPrompts)
+      .where(and(eq(grokPrompts.clientId, clientId), eq(grokPrompts.audience, prompt.audience)))
+      .orderBy(desc(grokPrompts.updatedAt))
+      .limit(1);
     if (next) {
       await db.update(grokPrompts).set({ isDefault: true, updatedAt: new Date() }).where(eq(grokPrompts.id, next.id));
-      await applyDefault(clientId, next.body);
+      if (next.audience !== "session") await applyDefault(clientId, next.body);
     }
   }
   return true;
@@ -140,9 +158,12 @@ export async function deleteGrokPrompt(clientId: string, promptId: string) {
 export async function makeDefaultPrompt(clientId: string, promptId: string) {
   const [prompt] = await db.select().from(grokPrompts).where(and(eq(grokPrompts.id, promptId), eq(grokPrompts.clientId, clientId))).limit(1);
   if (!prompt) return false;
-  await db.update(grokPrompts).set({ isDefault: false, updatedAt: new Date() }).where(eq(grokPrompts.clientId, clientId));
+  await db
+    .update(grokPrompts)
+    .set({ isDefault: false, updatedAt: new Date() })
+    .where(and(eq(grokPrompts.clientId, clientId), eq(grokPrompts.audience, prompt.audience)));
   await db.update(grokPrompts).set({ isDefault: true, updatedAt: new Date() }).where(eq(grokPrompts.id, prompt.id));
-  await applyDefault(clientId, prompt.body);
+  if (prompt.audience !== "session") await applyDefault(clientId, prompt.body);
   return true;
 }
 
@@ -159,11 +180,11 @@ async function applyDefault(clientId: string, body: string) {
     .where(eq(humeAgents.id, agent.id));
 }
 
-export async function defaultPromptBody(clientId: string) {
+export async function defaultPromptBody(clientId: string, audience: PromptAudience = "call") {
   const [prompt] = await db
     .select()
     .from(grokPrompts)
-    .where(and(eq(grokPrompts.clientId, clientId), eq(grokPrompts.isDefault, true)))
+    .where(and(eq(grokPrompts.clientId, clientId), eq(grokPrompts.audience, audience), eq(grokPrompts.isDefault, true)))
     .limit(1);
   return prompt?.body || "";
 }

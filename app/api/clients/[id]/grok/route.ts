@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminApiRequest } from "@/lib/auth";
 import {
   addGrokPrompt,
+  cleanAudience,
   deleteGrokPrompt,
   getGrokSetup,
   makeDefaultPrompt,
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (action === "voice") {
       await saveGrokVoice(id, String(body?.voice || "eve"), String(body?.greeting || ""));
     } else if (action === "add-prompt") {
-      await addGrokPrompt(id, String(body?.name || ""), String(body?.body || ""), body?.makeDefault === true);
+      await addGrokPrompt(id, String(body?.name || ""), String(body?.body || ""), body?.makeDefault === true, cleanAudience(body?.audience));
     } else if (action === "update-prompt") {
       const saved = await updateGrokPrompt(id, String(body?.promptId || ""), String(body?.name || ""), String(body?.body || ""));
       if (!saved) return NextResponse.json({ error: "Prompt not found" }, { status: 404 });

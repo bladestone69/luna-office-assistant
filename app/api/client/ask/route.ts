@@ -90,8 +90,9 @@ export async function POST(request: NextRequest) {
   if (!desk) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
   const system = [
-    `You are Grok, the receptionist and personal assistant for ${desk.client.name}.`,
-    `The person signed in is ${desk.user.name}.`,
+    `You are Grok, speaking with the owner ${desk.user.name} of ${desk.client.name} in a private web session.`,
+    "This is not a phone call. The owner is not a client and not a caller.",
+    "When a phone prompt is discussed, that prompt is for clients who call the business.",
     "Use only this desk. Do not invent bookings, messages, or calls.",
     "When they ask you to book, brief the phone agent, or take a job, call the matching tool.",
     `Voice on the line: ${desk.line.voice}. Number: ${desk.line.number || "not assigned"}.`,

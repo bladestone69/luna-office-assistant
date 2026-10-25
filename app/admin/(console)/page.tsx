@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import SpeakToGrok from "@/components/grok/SpeakToGrok";
 import styles from "./page.module.css";
 import type {
   AdminCall,
@@ -945,36 +946,198 @@ function ClientAccessPanel({
   );
 }
 
-const STARTER_PROMPTS = [
+type PromptAudience = "call" | "session";
+
+type PromptItem = {
+  id: string;
+  name: string;
+  body: string;
+  audience?: string;
+  isDefault: boolean;
+};
+
+const STARTER_PROMPTS: { audience: PromptAudience; name: string; body: string }[] = [
   {
+    audience: "call",
     name: "Front desk",
-    body: "You are the receptionist. Answer with the company name, take a clear message, and offer a booking in office hours. Never invent a free slot.",
+    body: "This is a phone call. The person speaking is a client or caller, not the owner. You are the receptionist. Answer with the company name, take a clear message, and offer a booking in office hours. Never invent a free slot.",
   },
   {
+    audience: "call",
     name: "After hours",
-    body: "The office is closed. Say so in the first sentence, take a name and number, and promise a callback on the next business day. Do not book a time.",
+    body: "This is a phone call with a client or caller, not the owner. The office is closed. Say so in the first sentence, take a name and number, and promise a callback on the next business day. Do not book a time.",
   },
   {
+    audience: "call",
     name: "Appointments",
-    body: "Your job is the diary. Confirm the caller name, phone, and a time between 08:00 and 17:00 Johannesburg. Use book_appointment only after they agree.",
+    body: "This is a phone call. The speaker is a client, not the owner. Your job is the diary. Confirm the caller name, phone, and a time between 08:00 and 17:00 Johannesburg. Use book_appointment only after they agree.",
   },
   {
+    audience: "call",
     name: "Accounts follow-up",
-    body: "You are calling about an outstanding account. Be polite and direct. State the business name, ask for the right person, and take a payment commitment or a callback time. Do not threaten.",
+    body: "This is a phone call to a client, not a session with the owner. You are calling about an outstanding account. Be polite and direct. State the business name, ask for the right person, and take a payment commitment or a callback time. Do not threaten.",
+  },
+  {
+    audience: "session",
+    name: "Owner desk",
+    body: "This is a private web session with the owner, not a phone call. You know you are speaking to the user who owns this business. Help with the diary, callbacks, and what the phone agent should say to clients. Do not treat the owner as a caller.",
+  },
+  {
+    audience: "session",
+    name: "Owner briefing",
+    body: "You are in a web voice session with the owner. Address them as the owner. Summarise open jobs, the diary for today, and messages. Ask what they want done. Never greet them as a customer.",
   },
 ];
+
+function PromptLane({
+  audience,
+  title,
+  hint,
+  prompts,
+  busy,
+  onSend,
+}: {
+  audience: PromptAudience;
+  title: string;
+  hint: string;
+  prompts: PromptItem[];
+  busy: boolean;
+  onSend: (action: Record<string, unknown>, ok: string) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState({ name: "", body: "", makeDefault: true });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [edit, setEdit] = useState({ name: "", body: "" });
+  const selected = prompts.find((prompt) => prompt.isDefault);
+  const starters = STARTER_PROMPTS.filter((prompt) => prompt.audience === audience);
+
+  return (
+    <div className={styles.infoCard}>
+      <h3 className={styles.infoCardTitle}>{title}</h3>
+      <p className={styles.clientDetailMeta}>{hint}</p>
+      {selected ? (
+        <>
+          <p className={styles.promptDefault}>Default for this setup</p>
+          <p className={styles.agentName}>{selected.name}</p>
+          <p className={styles.agentPrompt}>{selected.body}</p>
+        </>
+      ) : (
+        <p className={styles.emptyState}>No default yet. The first prompt you add becomes the default for this setup.</p>
+      )}
+      {prompts.map((prompt) => (
+        <div key={prompt.id} className={styles.agentCard}>
+          <div className={styles.agentCardHeader}>
+            <div>
+              <p className={styles.agentName}>{prompt.name}</p>
+              {prompt.isDefault ? <p className={styles.promptDefault}>Default</p> : null}
+            </div>
+            <div className={styles.userActions}>
+              {!prompt.isDefault && (
+                <button className={styles.btnSm} type="button" disabled={busy} onClick={() => void onSend({ action: "default-prompt", promptId: prompt.id }, `${prompt.name} is the default for this setup.`)}>
+                  Make default
+                </button>
+              )}
+              <button
+                className={styles.btnGhost}
+                style={{ fontSize: 12 }}
+                type="button"
+                onClick={() => {
+                  setEditingId(prompt.id);
+                  setEdit({ name: prompt.name, body: prompt.body });
+                }}
+              >
+                Edit
+              </button>
+              <button className={styles.btnGhost} style={{ fontSize: 12 }} type="button" disabled={busy} onClick={() => void onSend({ action: "delete-prompt", promptId: prompt.id }, "Prompt removed.")}>
+                Delete
+              </button>
+            </div>
+          </div>
+          {editingId === prompt.id ? (
+            <div className={styles.formField}>
+              <input className="input" value={edit.name} onChange={(event) => setEdit({ ...edit, name: event.target.value })} />
+              <textarea className="input" style={{ minHeight: 100, marginTop: 8 }} value={edit.body} onChange={(event) => setEdit({ ...edit, body: event.target.value })} />
+              <div className={styles.formActions}>
+                <button className={styles.btnGhost} type="button" onClick={() => setEditingId(null)}>Cancel</button>
+                <button
+                  className={styles.btnPrimary}
+                  style={{ width: "auto" }}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void onSend({ action: "update-prompt", promptId: prompt.id, name: edit.name, body: edit.body }, "Prompt updated.").then(() => setEditingId(null))}
+                >
+                  Save prompt
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className={styles.agentPrompt}>{prompt.body}</p>
+          )}
+        </div>
+      ))}
+      <div className={styles.editForm}>
+        <h3 className={styles.editFormTitle}>Add a prompt</h3>
+        <div className={styles.formField}>
+          <label className={styles.fieldLabel}>Name</label>
+          <input className="input" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder={audience === "call" ? "Front desk" : "Owner desk"} />
+        </div>
+        <div className={styles.formField}>
+          <label className={styles.fieldLabel}>Prompt</label>
+          <textarea
+            className="input"
+            style={{ minHeight: 120 }}
+            value={draft.body}
+            onChange={(event) => setDraft({ ...draft, body: event.target.value })}
+            placeholder={audience === "call" ? "How Grok should treat a client on a phone call." : "How Grok should speak with the owner in a web session."}
+          />
+        </div>
+        <label className={styles.checkboxLabel}>
+          <input type="checkbox" checked={draft.makeDefault} onChange={(event) => setDraft({ ...draft, makeDefault: event.target.checked })} />
+          Make this the default for this setup
+        </label>
+        <div className={styles.formActions}>
+          <button
+            className={styles.btnPrimary}
+            style={{ width: "auto" }}
+            type="button"
+            disabled={busy || !draft.name || !draft.body}
+            onClick={() =>
+              void onSend(
+                { action: "add-prompt", name: draft.name, body: draft.body, makeDefault: draft.makeDefault, audience },
+                "Prompt added.",
+              ).then(() => setDraft({ name: "", body: "", makeDefault: true }))
+            }
+          >
+            Add prompt
+          </button>
+        </div>
+        <p className={styles.fieldLabel} style={{ marginTop: 8 }}>Or start from one of these</p>
+        <div className={styles.voiceGrid}>
+          {starters.map((prompt) => (
+            <button
+              key={prompt.name}
+              className={styles.voiceChip}
+              type="button"
+              disabled={busy}
+              onClick={() => setDraft({ name: prompt.name, body: prompt.body, makeDefault: prompts.length === 0 })}
+            >
+              {prompt.name}
+              <small>Load into the form</small>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function GrokSetupTab({ clientId }: { clientId: string }) {
   const [setup, setSetup] = useState<{
     voice: string;
     greeting: string;
-    prompts: { id: string; name: string; body: string; isDefault: boolean }[];
+    prompts: PromptItem[];
     voices: { id: string; name: string; gender: string }[];
   } | null>(null);
   const [greeting, setGreeting] = useState("");
-  const [draft, setDraft] = useState({ name: "", body: "", makeDefault: true });
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [edit, setEdit] = useState({ name: "", body: "" });
   const [message, setMessage] = useState<AdminMessage | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -982,7 +1145,7 @@ function GrokSetupTab({ clientId }: { clientId: string }) {
     const data = await apiRequest<{
       voice: string;
       greeting: string;
-      prompts: { id: string; name: string; body: string; isDefault: boolean }[];
+      prompts: PromptItem[];
       voices: { id: string; name: string; gender: string }[];
     }>(`/api/clients/${clientId}/grok`);
     setSetup(data);
@@ -1012,7 +1175,8 @@ function GrokSetupTab({ clientId }: { clientId: string }) {
     }
   }
 
-  const selected = setup?.prompts.find((prompt) => prompt.isDefault);
+  const callPrompts = (setup?.prompts || []).filter((prompt) => prompt.audience !== "session");
+  const sessionPrompts = (setup?.prompts || []).filter((prompt) => prompt.audience === "session");
 
   return (
     <div className={styles.tabContent}>
@@ -1020,8 +1184,13 @@ function GrokSetupTab({ clientId }: { clientId: string }) {
         <h2 className={styles.tabTitle}>Grok setup for this client</h2>
       </div>
       <p className={styles.emptyState} style={{ textAlign: "left" }}>
-        Pick the voice, choose the default prompt, or add a new one. The default prompt is what Grok follows on the next call.
+        Two setups. A phone call treats the other person as a client. A web session treats the person as the owner. Speak to Grok opens that owner session.
       </p>
+      <div className={styles.infoCard}>
+        <h3 className={styles.infoCardTitle}>Speak to Grok</h3>
+        <p className={styles.clientDetailMeta}>This button is a live voice session with the owner, not a phone call to a client.</p>
+        <SpeakToGrok sessionUrl={`/api/clients/${clientId}/voice-session`} toolUrl={`/api/clients/${clientId}/voice-tool`} />
+      </div>
 
       <div className={styles.infoCard}>
         <h3 className={styles.infoCardTitle}>Voice</h3>
@@ -1041,7 +1210,7 @@ function GrokSetupTab({ clientId }: { clientId: string }) {
           ))}
         </div>
         <div className={styles.formField} style={{ marginTop: 14 }}>
-          <label className={styles.fieldLabel}>Opening line</label>
+          <label className={styles.fieldLabel}>Opening line on a phone call</label>
           <textarea className="input" style={{ minHeight: 70 }} value={greeting} onChange={(event) => setGreeting(event.target.value)} placeholder="Good day, you have reached..." />
         </div>
         <button className={styles.btnPrimary} style={{ width: "auto" }} type="button" disabled={busy} onClick={() => void send({ action: "voice", voice: setup?.voice || "eve", greeting }, "Opening line saved.")}>
@@ -1049,124 +1218,28 @@ function GrokSetupTab({ clientId }: { clientId: string }) {
         </button>
       </div>
 
-      <div className={styles.infoCard}>
-        <h3 className={styles.infoCardTitle}>Default prompt</h3>
-        {selected ? (
-          <>
-            <p className={styles.promptDefault}>Default</p>
-            <p className={styles.agentName}>{selected.name}</p>
-            <p className={styles.agentPrompt}>{selected.body}</p>
-          </>
-        ) : (
-          <p className={styles.emptyState}>No default yet. Add a prompt or use one of the starters. The first one becomes the default.</p>
-        )}
-      </div>
-
-      <div className={styles.tabHeader}>
-        <h2 className={styles.tabTitle}>Prompt library</h2>
-      </div>
-      {(setup?.prompts || []).map((prompt) => (
-        <div key={prompt.id} className={styles.agentCard}>
-          <div className={styles.agentCardHeader}>
-            <div>
-              <p className={styles.agentName}>{prompt.name}</p>
-              {prompt.isDefault ? <p className={styles.promptDefault}>Default</p> : null}
-            </div>
-            <div className={styles.userActions}>
-              {!prompt.isDefault && (
-                <button className={styles.btnSm} type="button" disabled={busy} onClick={() => void send({ action: "default-prompt", promptId: prompt.id }, `${prompt.name} is the default.`)}>
-                  Make default
-                </button>
-              )}
-              <button
-                className={styles.btnGhost}
-                style={{ fontSize: 12 }}
-                type="button"
-                onClick={() => {
-                  setEditingId(prompt.id);
-                  setEdit({ name: prompt.name, body: prompt.body });
-                }}
-              >
-                Edit
-              </button>
-              <button className={styles.btnGhost} style={{ fontSize: 12 }} type="button" disabled={busy} onClick={() => void send({ action: "delete-prompt", promptId: prompt.id }, "Prompt removed.")}>
-                Delete
-              </button>
-            </div>
-          </div>
-          {editingId === prompt.id ? (
-            <div className={styles.formField}>
-              <input className="input" value={edit.name} onChange={(event) => setEdit({ ...edit, name: event.target.value })} />
-              <textarea className="input" style={{ minHeight: 100, marginTop: 8 }} value={edit.body} onChange={(event) => setEdit({ ...edit, body: event.target.value })} />
-              <div className={styles.formActions}>
-                <button className={styles.btnGhost} type="button" onClick={() => setEditingId(null)}>Cancel</button>
-                <button
-                  className={styles.btnPrimary}
-                  style={{ width: "auto" }}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void send({ action: "update-prompt", promptId: prompt.id, name: edit.name, body: edit.body }, "Prompt updated.").then(() => setEditingId(null))}
-                >
-                  Save prompt
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className={styles.agentPrompt}>{prompt.body}</p>
-          )}
-        </div>
-      ))}
-
-      <div className={styles.editForm}>
-        <h3 className={styles.editFormTitle}>Add a prompt</h3>
-        <div className={styles.formField}>
-          <label className={styles.fieldLabel}>Name</label>
-          <input className="input" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Front desk" />
-        </div>
-        <div className={styles.formField}>
-          <label className={styles.fieldLabel}>Prompt</label>
-          <textarea className="input" style={{ minHeight: 120 }} value={draft.body} onChange={(event) => setDraft({ ...draft, body: event.target.value })} placeholder="Tell Grok how to answer for this client." />
-        </div>
-        <label className={styles.checkboxLabel}>
-          <input type="checkbox" checked={draft.makeDefault} onChange={(event) => setDraft({ ...draft, makeDefault: event.target.checked })} />
-          Make this the default
-        </label>
-        <div className={styles.formActions}>
-          <button
-            className={styles.btnPrimary}
-            style={{ width: "auto" }}
-            type="button"
-            disabled={busy || !draft.name || !draft.body}
-            onClick={() =>
-              void send({ action: "add-prompt", name: draft.name, body: draft.body, makeDefault: draft.makeDefault }, "Prompt added.").then(() =>
-                setDraft({ name: "", body: "", makeDefault: true }),
-              )
-            }
-          >
-            Add prompt
-          </button>
-        </div>
-        <p className={styles.fieldLabel} style={{ marginTop: 8 }}>Or start from one of these</p>
-        <div className={styles.voiceGrid}>
-          {STARTER_PROMPTS.map((prompt) => (
-            <button
-              key={prompt.name}
-              className={styles.voiceChip}
-              type="button"
-              disabled={busy}
-              onClick={() => setDraft({ name: prompt.name, body: prompt.body, makeDefault: !setup?.prompts.length })}
-            >
-              {prompt.name}
-              <small>Load into the form</small>
-            </button>
-          ))}
-        </div>
-      </div>
+      <PromptLane
+        audience="call"
+        title="Phone call — speaking to a client"
+        hint="Grok uses this when someone calls. The speaker is a client, not the owner."
+        prompts={callPrompts}
+        busy={busy}
+        onSend={send}
+      />
+      <PromptLane
+        audience="session"
+        title="Owner session — speaking to the user"
+        hint="Grok uses this when the owner presses Speak to Grok. It knows it is talking to the owner, not a caller."
+        prompts={sessionPrompts}
+        busy={busy}
+        onSend={send}
+      />
 
       {message && <p style={{ color: message.type === "error" ? "#f87171" : "#4ade80", fontSize: 12 }}>{message.text}</p>}
     </div>
   );
 }
+
 
 function NumbersTab({
   clientId,

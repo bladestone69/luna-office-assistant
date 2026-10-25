@@ -65,6 +65,7 @@ export const grokPrompts = pgTable("grok_prompts", {
   name: text("name").notNull(),
   body: text("body").notNull(),
   isDefault: boolean("is_default").default(false),
+  audience: text("audience").notNull().default("call"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

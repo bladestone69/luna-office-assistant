@@ -92,19 +92,22 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
   }
 
   if (clientId) {
-    const chosen = await defaultPromptBody(clientId);
+    const chosen = await defaultPromptBody(clientId, "call");
     if (chosen) instructions = chosen;
   }
 
   const base = instructions.trim() ||
-    `You are the phone receptionist for ${businessName} in South Africa. ` +
-    `Answer briefly, take a message with take_message, or book a time with book_appointment. ` +
-    `Never invent an open slot. If booking fails, offer another time.`;
+    `You answer the phone for ${businessName} in South Africa. ` +
+    `Take a message with take_message, or book a time with book_appointment. ` +
+    `Never invent an open slot.`;
 
   const opening = greeting.trim()
     ? `Start the call by saying: ${greeting.trim()}\n`
     : "";
   const work = clientId ? await workBriefForClient(clientId) : "";
+  const callerFrame =
+    `This is a phone call. The person speaking is a client or caller of ${businessName}, not the owner. ` +
+    `Do not treat them as the owner.\n`;
 
   return {
     clientId,
@@ -112,7 +115,7 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
     voice,
     from,
     to,
-    instructions: `${opening}${base}\nCaller number: ${from || "unknown"}. Business: ${businessName}. Times are Africa/Johannesburg.\n${work}`,
+    instructions: `${callerFrame}${opening}${base}\nCaller number: ${from || "unknown"}. Business: ${businessName}. Times are Africa/Johannesburg.\n${work}`,
   };
 }
 
