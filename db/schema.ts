@@ -59,6 +59,16 @@ export const grokNumbers = pgTable("grok_numbers", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const grokPrompts = pgTable("grok_prompts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  body: text("body").notNull(),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ─── Phone Numbers ────────────────────────────────────────────────────────────────
 export const phoneNumbers = pgTable("phone_numbers", {
   id: uuid("id").primaryKey().defaultRandom(),

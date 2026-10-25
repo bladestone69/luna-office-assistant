@@ -6,6 +6,7 @@ import { createPrivacySafeEvent, isSlotAvailable } from "@/lib/calendar";
 import { DateTime } from "luxon";
 import { APP_TIMEZONE } from "@/lib/constants";
 import { workBriefForClient } from "@/lib/desk-context";
+import { defaultPromptBody } from "@/lib/grok-setup";
 
 export type GrokCallConfig = {
   clientId: string | null;
@@ -88,6 +89,11 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
       instructions = extra.grokInstructions || extra.systemPrompt || "";
       greeting = extra.greetingScript || greeting;
     }
+  }
+
+  if (clientId) {
+    const chosen = await defaultPromptBody(clientId);
+    if (chosen) instructions = chosen;
   }
 
   const base = instructions.trim() ||

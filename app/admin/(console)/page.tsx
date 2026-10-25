@@ -53,7 +53,7 @@ const SECTIONS: { id: AdminSection; label: string }[] = [
 
 const CLIENT_TABS = [
   "Overview",
-  "Voice",
+  "Grok",
   "Numbers",
   "Contacts",
   "Leads",
@@ -340,7 +340,7 @@ export default function AdminPage() {
               onRetry={() => void loadClients()}
               onSelect={(client) => {
                 setSelectedClientId(client.id);
-                setClientTab("Overview");
+                setClientTab("Grok");
               }}
               onNew={() => setShowNewClient(true)}
             />
@@ -659,16 +659,7 @@ function ClientDetailSection({
         </OverviewTab>
       )}
 
-      {detail && activeTab === "Voice" && (
-        <HumeAgentTab
-          clientId={detail.client.id}
-          agents={detail.humeAgents}
-          onChanged={() => {
-            onRefresh();
-            onRefreshClients();
-          }}
-        />
-      )}
+      {detail && activeTab === "Grok" && <GrokSetupTab clientId={detail.client.id} />}
 
       {detail && activeTab === "Numbers" && (
         <NumbersTab
@@ -954,191 +945,225 @@ function ClientAccessPanel({
   );
 }
 
-function HumeAgentTab({
-  clientId,
-  agents,
-  onChanged,
-}: {
-  clientId: string;
-  agents: HumeAgent[];
-  onChanged: () => void;
-}) {
+const STARTER_PROMPTS = [
+  {
+    name: "Front desk",
+    body: "You are the receptionist. Answer with the company name, take a clear message, and offer a booking in office hours. Never invent a free slot.",
+  },
+  {
+    name: "After hours",
+    body: "The office is closed. Say so in the first sentence, take a name and number, and promise a callback on the next business day. Do not book a time.",
+  },
+  {
+    name: "Appointments",
+    body: "Your job is the diary. Confirm the caller name, phone, and a time between 08:00 and 17:00 Johannesburg. Use book_appointment only after they agree.",
+  },
+  {
+    name: "Accounts follow-up",
+    body: "You are calling about an outstanding account. Be polite and direct. State the business name, ask for the right person, and take a payment commitment or a callback time. Do not threaten.",
+  },
+];
+
+function GrokSetupTab({ clientId }: { clientId: string }) {
+  const [setup, setSetup] = useState<{
+    voice: string;
+    greeting: string;
+    prompts: { id: string; name: string; body: string; isDefault: boolean }[];
+    voices: { id: string; name: string; gender: string }[];
+  } | null>(null);
+  const [greeting, setGreeting] = useState("");
+  const [draft, setDraft] = useState({ name: "", body: "", makeDefault: true });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    name: "",
-    configId: "",
-    systemPrompt: "",
-    greetingScript: "",
-    voiceProvider: "grok" as "grok" | "hume",
-    grokVoice: "eve",
-    grokInstructions: "",
-  });
-  const [saving, setSaving] = useState(false);
+  const [edit, setEdit] = useState({ name: "", body: "" });
   const [message, setMessage] = useState<AdminMessage | null>(null);
-  const [grokReady, setGrokReady] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    const data = await apiRequest<{
+      voice: string;
+      greeting: string;
+      prompts: { id: string; name: string; body: string; isDefault: boolean }[];
+      voices: { id: string; name: string; gender: string }[];
+    }>(`/api/clients/${clientId}/grok`);
+    setSetup(data);
+    setGreeting(data.greeting || "");
+  }
 
   useEffect(() => {
-    apiRequest<{ grok: boolean }>("/api/admin/grok/status")
-      .then((status) => setGrokReady(status.grok))
-      .catch(() => setGrokReady(null));
-  }, []);
+    load().catch((error) => setMessage({ type: "error", text: error instanceof Error ? error.message : "Could not load Grok setup" }));
+  }, [clientId]);
 
-  function startEdit(agent?: HumeAgent) {
+  async function send(action: Record<string, unknown>, ok: string) {
+    setBusy(true);
     setMessage(null);
-    if (agent) {
-      setEditingId(agent.id);
-      setForm({
-        name: agent.name,
-        configId: agent.configId === "hume-backup" ? "" : agent.configId,
-        systemPrompt: agent.systemPrompt ?? "",
-        greetingScript: agent.greetingScript ?? "",
-        voiceProvider: agent.voiceProvider === "hume" ? "hume" : "grok",
-        grokVoice: agent.grokVoice || "eve",
-        grokInstructions: agent.grokInstructions || agent.systemPrompt || "",
-      });
-      return;
-    }
-
-    setEditingId("new");
-    setForm({
-      name: "",
-      configId: "",
-      systemPrompt: "",
-      greetingScript: "",
-      voiceProvider: "grok",
-      grokVoice: "eve",
-      grokInstructions: "",
-    });
-  }
-
-  async function save() {
-    setMessage(null);
-    setSaving(true);
     try {
-      const payload = {
-        ...form,
-        systemPrompt: form.grokInstructions || form.systemPrompt,
-      };
-      if (editingId === "new") {
-        await apiRequest(`/api/clients/${clientId}/hume-agents`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } else if (editingId) {
-        await apiRequest(`/api/clients/${clientId}/hume-agents/${editingId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      }
-
-      setMessage({ type: "success", text: "Voice agent saved." });
-      setEditingId(null);
-      onChanged();
+      const data = await apiRequest<NonNullable<typeof setup>>(`/api/clients/${clientId}/grok`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action),
+      });
+      setSetup(data);
+      setGreeting(data.greeting || "");
+      setMessage({ type: "success", text: ok });
     } catch (error) {
-      setMessage({ type: "error", text: error instanceof Error ? error.message : "Failed to save agent" });
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "Could not save" });
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
-  const humeSelected = form.voiceProvider === "hume";
+  const selected = setup?.prompts.find((prompt) => prompt.isDefault);
 
   return (
     <div className={styles.tabContent}>
       <div className={styles.tabHeader}>
-        <h2 className={styles.tabTitle}>Voice agent</h2>
-        <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={() => startEdit()} type="button">
-          + New Agent
-        </button>
+        <h2 className={styles.tabTitle}>Grok setup for this client</h2>
       </div>
       <p className={styles.emptyState} style={{ textAlign: "left" }}>
-        Grok answers the call, takes a message, and books into the Aura calendar. Hume is only the backup.
-        {grokReady === false ? " The xAI key is not on the server yet, so a live call still cannot reach Grok." : ""}
-        {grokReady === true ? " The xAI key is set." : ""}
+        Pick the voice, choose the default prompt, or add a new one. The default prompt is what Grok follows on the next call.
       </p>
 
-      {!agents.length && <p className={styles.emptyState}>No voice agent saved for this client yet.</p>}
+      <div className={styles.infoCard}>
+        <h3 className={styles.infoCardTitle}>Voice</h3>
+        <p className={styles.clientDetailMeta}>Selected: {setup?.voices.find((voice) => voice.id === setup.voice)?.name || "Eve"}</p>
+        <div className={styles.voiceGrid}>
+          {(setup?.voices || []).map((voice) => (
+            <button
+              key={voice.id}
+              className={`${styles.voiceChip} ${setup?.voice === voice.id ? styles.voiceChipOn : ""}`}
+              type="button"
+              disabled={busy}
+              onClick={() => void send({ action: "voice", voice: voice.id, greeting }, `${voice.name} is now the voice.`)}
+            >
+              {voice.name}
+              <small>{voice.gender}</small>
+            </button>
+          ))}
+        </div>
+        <div className={styles.formField} style={{ marginTop: 14 }}>
+          <label className={styles.fieldLabel}>Opening line</label>
+          <textarea className="input" style={{ minHeight: 70 }} value={greeting} onChange={(event) => setGreeting(event.target.value)} placeholder="Good day, you have reached..." />
+        </div>
+        <button className={styles.btnPrimary} style={{ width: "auto" }} type="button" disabled={busy} onClick={() => void send({ action: "voice", voice: setup?.voice || "eve", greeting }, "Opening line saved.")}>
+          Save opening line
+        </button>
+      </div>
 
-      {agents.map((agent) => (
-        <div key={agent.id} className={styles.agentCard}>
+      <div className={styles.infoCard}>
+        <h3 className={styles.infoCardTitle}>Default prompt</h3>
+        {selected ? (
+          <>
+            <p className={styles.promptDefault}>Default</p>
+            <p className={styles.agentName}>{selected.name}</p>
+            <p className={styles.agentPrompt}>{selected.body}</p>
+          </>
+        ) : (
+          <p className={styles.emptyState}>No default yet. Add a prompt or use one of the starters. The first one becomes the default.</p>
+        )}
+      </div>
+
+      <div className={styles.tabHeader}>
+        <h2 className={styles.tabTitle}>Prompt library</h2>
+      </div>
+      {(setup?.prompts || []).map((prompt) => (
+        <div key={prompt.id} className={styles.agentCard}>
           <div className={styles.agentCardHeader}>
             <div>
-              <p className={styles.agentName}>{agent.name}</p>
-              <p className={styles.agentConfigId}>
-                {agent.voiceProvider === "hume"
-                  ? `Hume backup · ${agent.configId}`
-                  : `Grok · ${agent.grokVoice || "eve"}`}
-              </p>
+              <p className={styles.agentName}>{prompt.name}</p>
+              {prompt.isDefault ? <p className={styles.promptDefault}>Default</p> : null}
             </div>
-            <button className={styles.btnGhost} style={{ fontSize: 12 }} onClick={() => startEdit(agent)} type="button">
-              Edit
-            </button>
+            <div className={styles.userActions}>
+              {!prompt.isDefault && (
+                <button className={styles.btnSm} type="button" disabled={busy} onClick={() => void send({ action: "default-prompt", promptId: prompt.id }, `${prompt.name} is the default.`)}>
+                  Make default
+                </button>
+              )}
+              <button
+                className={styles.btnGhost}
+                style={{ fontSize: 12 }}
+                type="button"
+                onClick={() => {
+                  setEditingId(prompt.id);
+                  setEdit({ name: prompt.name, body: prompt.body });
+                }}
+              >
+                Edit
+              </button>
+              <button className={styles.btnGhost} style={{ fontSize: 12 }} type="button" disabled={busy} onClick={() => void send({ action: "delete-prompt", promptId: prompt.id }, "Prompt removed.")}>
+                Delete
+              </button>
+            </div>
           </div>
-          {(agent.grokInstructions || agent.systemPrompt) && (
-            <p className={styles.agentPrompt}>{agent.grokInstructions || agent.systemPrompt}</p>
+          {editingId === prompt.id ? (
+            <div className={styles.formField}>
+              <input className="input" value={edit.name} onChange={(event) => setEdit({ ...edit, name: event.target.value })} />
+              <textarea className="input" style={{ minHeight: 100, marginTop: 8 }} value={edit.body} onChange={(event) => setEdit({ ...edit, body: event.target.value })} />
+              <div className={styles.formActions}>
+                <button className={styles.btnGhost} type="button" onClick={() => setEditingId(null)}>Cancel</button>
+                <button
+                  className={styles.btnPrimary}
+                  style={{ width: "auto" }}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void send({ action: "update-prompt", promptId: prompt.id, name: edit.name, body: edit.body }, "Prompt updated.").then(() => setEditingId(null))}
+                >
+                  Save prompt
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className={styles.agentPrompt}>{prompt.body}</p>
           )}
         </div>
       ))}
 
-      {editingId !== null && (
-        <div className={styles.editForm}>
-          <h3 className={styles.editFormTitle}>{editingId === "new" ? "New voice agent" : "Edit voice agent"}</h3>
-          <div className={styles.formGrid}>
-            <div className={styles.formField}>
-              <label className={styles.fieldLabel}>Agent name</label>
-              <input className="input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Receptionist" />
-            </div>
-            <div className={styles.formField}>
-              <label className={styles.fieldLabel}>Who answers</label>
-              <select className="input" value={form.voiceProvider} onChange={(event) => setForm((current) => ({ ...current, voiceProvider: event.target.value === "hume" ? "hume" : "grok" }))}>
-                <option value="grok">Grok (primary)</option>
-                <option value="hume">Hume (backup)</option>
-              </select>
-            </div>
-          </div>
-          {!humeSelected && (
-            <div className={styles.formField}>
-              <label className={styles.fieldLabel}>Grok voice</label>
-              <select className="input" value={form.grokVoice} onChange={(event) => setForm((current) => ({ ...current, grokVoice: event.target.value }))}>
-                <option value="eve">Eve</option>
-                <option value="ara">Ara</option>
-                <option value="rex">Rex</option>
-                <option value="sal">Sal</option>
-              </select>
-            </div>
-          )}
-          {humeSelected && (
-            <div className={styles.formField}>
-              <label className={styles.fieldLabel}>Hume config ID</label>
-              <input className="input" value={form.configId} onChange={(event) => setForm((current) => ({ ...current, configId: event.target.value }))} placeholder="Only needed for the Hume backup" />
-            </div>
-          )}
-          <div className={styles.formField}>
-            <label className={styles.fieldLabel}>{humeSelected ? "Backup prompt" : "What Grok should do"}</label>
-            <textarea className="input" style={{ minHeight: 100 }} value={form.grokInstructions} onChange={(event) => setForm((current) => ({ ...current, grokInstructions: event.target.value }))} placeholder="Answer for this business, take a message, or book a time." />
-          </div>
-          <div className={styles.formField}>
-            <label className={styles.fieldLabel}>Opening line</label>
-            <textarea className="input" style={{ minHeight: 80 }} value={form.greetingScript} onChange={(event) => setForm((current) => ({ ...current, greetingScript: event.target.value }))} placeholder="Good day, you have reached..." />
-          </div>
-          <div className={styles.formActions}>
-            <button className={styles.btnGhost} onClick={() => setEditingId(null)} type="button">
-              Cancel
-            </button>
-            <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={() => void save()} disabled={!form.name || saving || (humeSelected && !form.configId)} type="button">
-              {saving ? "Saving..." : "Save"}
-            </button>
-          </div>
+      <div className={styles.editForm}>
+        <h3 className={styles.editFormTitle}>Add a prompt</h3>
+        <div className={styles.formField}>
+          <label className={styles.fieldLabel}>Name</label>
+          <input className="input" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Front desk" />
         </div>
-      )}
+        <div className={styles.formField}>
+          <label className={styles.fieldLabel}>Prompt</label>
+          <textarea className="input" style={{ minHeight: 120 }} value={draft.body} onChange={(event) => setDraft({ ...draft, body: event.target.value })} placeholder="Tell Grok how to answer for this client." />
+        </div>
+        <label className={styles.checkboxLabel}>
+          <input type="checkbox" checked={draft.makeDefault} onChange={(event) => setDraft({ ...draft, makeDefault: event.target.checked })} />
+          Make this the default
+        </label>
+        <div className={styles.formActions}>
+          <button
+            className={styles.btnPrimary}
+            style={{ width: "auto" }}
+            type="button"
+            disabled={busy || !draft.name || !draft.body}
+            onClick={() =>
+              void send({ action: "add-prompt", name: draft.name, body: draft.body, makeDefault: draft.makeDefault }, "Prompt added.").then(() =>
+                setDraft({ name: "", body: "", makeDefault: true }),
+              )
+            }
+          >
+            Add prompt
+          </button>
+        </div>
+        <p className={styles.fieldLabel} style={{ marginTop: 8 }}>Or start from one of these</p>
+        <div className={styles.voiceGrid}>
+          {STARTER_PROMPTS.map((prompt) => (
+            <button
+              key={prompt.name}
+              className={styles.voiceChip}
+              type="button"
+              disabled={busy}
+              onClick={() => setDraft({ name: prompt.name, body: prompt.body, makeDefault: !setup?.prompts.length })}
+            >
+              {prompt.name}
+              <small>Load into the form</small>
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {message && (
-        <p style={{ color: message.type === "error" ? "#f87171" : "#4ade80", fontSize: 12 }}>
-          {message.text}
-        </p>
-      )}
+      {message && <p style={{ color: message.type === "error" ? "#f87171" : "#4ade80", fontSize: 12 }}>{message.text}</p>}
     </div>
   );
 }

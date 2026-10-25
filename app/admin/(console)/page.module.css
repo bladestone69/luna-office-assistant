@@ -1859,3 +1859,40 @@
   gap: 10px;
   margin-top: 8px;
 }
+
+.voiceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.voiceChip {
+  text-align: left;
+  border-radius: 12px;
+  border: 1px solid rgba(240, 244, 248, 0.12);
+  background: rgba(7, 14, 26, 0.45);
+  color: #d5e2ee;
+  padding: 10px 12px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.voiceChipOn {
+  border-color: #4a90d9;
+  background: rgba(74, 144, 217, 0.18);
+  color: #f4f7fb;
+}
+
+.voiceChip small {
+  display: block;
+  color: #8fa4bc;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.promptDefault {
+  color: #d6a86c;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

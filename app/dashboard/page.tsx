@@ -482,6 +482,98 @@ function Messages({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<vo
   );
 }
 
+function ClientPromptSetup() {
+  const [setup, setSetup] = useState<{
+    voice: string;
+    greeting: string;
+    prompts: { id: string; name: string; body: string; isDefault: boolean }[];
+    voices: { id: string; name: string; gender: string }[];
+  } | null>(null);
+  const [greeting, setGreeting] = useState("");
+  const [draft, setDraft] = useState({ name: "", body: "" });
+  const [note, setNote] = useState("");
+
+  async function load() {
+    const data = await api<NonNullable<typeof setup>>("/api/client/grok");
+    setSetup(data);
+    setGreeting(data.greeting || "");
+  }
+
+  useEffect(() => {
+    load().catch((error) => setNote(error instanceof Error ? error.message : "Could not load Grok setup"));
+  }, []);
+
+  async function send(action: Record<string, unknown>, ok: string) {
+    setNote("");
+    try {
+      const data = await api<NonNullable<typeof setup>>("/api/client/grok", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action),
+      });
+      setSetup(data);
+      setGreeting(data.greeting || "");
+      setNote(ok);
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : "Could not save");
+    }
+  }
+
+  const selected = setup?.prompts.find((prompt) => prompt.isDefault);
+
+  return (
+    <div className={styles.panel}>
+      <span className={styles.label}>Voice and default prompt</span>
+      <div className={styles.form}>
+        <select
+          value={setup?.voice || "eve"}
+          onChange={(event) => void send({ action: "voice", voice: event.target.value, greeting }, "Voice saved.")}
+        >
+          {(setup?.voices || [{ id: "eve", name: "Eve", gender: "female" }]).map((voice) => (
+            <option key={voice.id} value={voice.id}>
+              {voice.name}
+            </option>
+          ))}
+        </select>
+        <textarea placeholder="Opening line" value={greeting} onChange={(event) => setGreeting(event.target.value)} />
+        <button className={styles.primary} type="button" onClick={() => void send({ action: "voice", voice: setup?.voice || "eve", greeting }, "Opening line saved.")}>
+          Save opening line
+        </button>
+        <p className={styles.quiet}>{selected ? `Default prompt: ${selected.name}` : "No default prompt yet."}</p>
+        {setup?.prompts.map((prompt) => (
+          <div key={prompt.id} className={styles.item}>
+            <div className={styles.itemHead}>
+              <h3>{prompt.name}</h3>
+              <span className={styles.meta}>{prompt.isDefault ? "Default" : ""}</span>
+            </div>
+            <p>{prompt.body}</p>
+            {!prompt.isDefault ? (
+              <button className={styles.tiny} type="button" onClick={() => void send({ action: "default-prompt", promptId: prompt.id }, `${prompt.name} is now the default.`)}>
+                Make default
+              </button>
+            ) : null}
+          </div>
+        ))}
+        <input placeholder="Prompt name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+        <textarea placeholder="What Grok should do for this business" value={draft.body} onChange={(event) => setDraft({ ...draft, body: event.target.value })} />
+        <button
+          className={styles.primary}
+          type="button"
+          disabled={!draft.name || !draft.body}
+          onClick={() =>
+            void send({ action: "add-prompt", name: draft.name, body: draft.body, makeDefault: !setup?.prompts.length }, "Prompt added.").then(() =>
+              setDraft({ name: "", body: "" }),
+            )
+          }
+        >
+          Add prompt
+        </button>
+        {note ? <p className={styles.note}>{note}</p> : null}
+      </div>
+    </div>
+  );
+}
+
 function Calls({ desk }: { desk: Desk }) {
   return (
     <>
@@ -521,34 +613,11 @@ function Calls({ desk }: { desk: Desk }) {
 }
 
 function Grok({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void> }) {
-  const [brief, setBrief] = useState({
-    instructions: desk.line.instructions,
-    greeting: desk.line.greeting,
-    voice: desk.line.voice || "eve",
-  });
   const [job, setJob] = useState({ title: "", details: "", phone: "", dueAt: "", callNow: false });
   const [thread, setThread] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState("");
-
-  async function saveBrief() {
-    setBusy("brief");
-    setNote("");
-    try {
-      await api("/api/client/brief", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(brief),
-      });
-      setNote("Brief saved. The next call uses it.");
-      await onChanged();
-    } catch (saveError) {
-      setNote(saveError instanceof Error ? saveError.message : "Could not save");
-    } finally {
-      setBusy("");
-    }
-  }
 
   async function saveJob(event: React.FormEvent) {
     event.preventDefault();
@@ -611,39 +680,13 @@ function Grok({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void> 
           <p className={styles.kicker}>Grok</p>
           <h1 className={styles.title}>Give Grok the work</h1>
           <p className={styles.lede}>
-            Write the brief, hand over jobs, or talk to Grok here. The phone agent reads the brief, the diary, and open jobs on the next call.
+            Pick a voice and a default prompt here. The phone uses that prompt, plus the diary and any open jobs.
           </p>
         </div>
         <Status desk={desk} />
       </header>
-      {!desk.line.grokReady ? (
-        <p className={styles.note}>The xAI key is not on the server yet, so a live reply and a live call cannot start. Briefs and jobs still save.</p>
-      ) : null}
       <section className={styles.grid}>
-        <div className={styles.panel}>
-          <span className={styles.label}>Brief for the phone</span>
-          <div className={styles.form}>
-            <select value={brief.voice} onChange={(event) => setBrief({ ...brief, voice: event.target.value })}>
-              <option value="eve">Eve</option>
-              <option value="ara">Ara</option>
-              <option value="rex">Rex</option>
-              <option value="sal">Sal</option>
-            </select>
-            <textarea
-              placeholder="Who you are, what to offer, what never to promise."
-              value={brief.instructions}
-              onChange={(event) => setBrief({ ...brief, instructions: event.target.value })}
-            />
-            <textarea
-              placeholder="Opening line when the call connects."
-              value={brief.greeting}
-              onChange={(event) => setBrief({ ...brief, greeting: event.target.value })}
-            />
-            <button className={styles.primary} type="button" onClick={() => void saveBrief()} disabled={busy === "brief"}>
-              {busy === "brief" ? "Saving" : "Save brief"}
-            </button>
-          </div>
-        </div>
+        <ClientPromptSetup />
         <form className={`${styles.panel} ${styles.form}`} onSubmit={(event) => void saveJob(event)}>
           <span className={styles.label}>A job</span>
           <input placeholder="Call the supplier back" value={job.title} onChange={(event) => setJob({ ...job, title: event.target.value })} required />
