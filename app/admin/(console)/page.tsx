@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import { ClientDiaryTab, ClientPracticeTab } from "@/components/admin/ClientOffice";
 import SpeakToGrok from "@/components/grok/SpeakToGrok";
 import styles from "./page.module.css";
 import type {
@@ -22,7 +23,6 @@ type AdminSection =
   | "dashboard"
   | "clients"
   | "leads"
-  | "bookings"
   | "usage"
   | "integrations"
   | "settings";
@@ -46,7 +46,6 @@ const SECTIONS: { id: AdminSection; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "clients", label: "Clients" },
   { id: "leads", label: "Leads" },
-  { id: "bookings", label: "Bookings" },
   { id: "usage", label: "Usage & Billing" },
   { id: "integrations", label: "Global Integrations" },
   { id: "settings", label: "Settings" },
@@ -54,6 +53,8 @@ const SECTIONS: { id: AdminSection; label: string }[] = [
 
 const CLIENT_TABS = [
   "Overview",
+  "Diary",
+  "Practice",
   "Grok",
   "Numbers",
   "Contacts",
@@ -204,9 +205,6 @@ export default function AdminPage() {
   const [allLeads, setAllLeads] = useState<AdminGlobalLead[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [leadsError, setLeadsError] = useState("");
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [loadingBookings, setLoadingBookings] = useState(true);
-  const [bookingsError, setBookingsError] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [clientTab, setClientTab] = useState<(typeof CLIENT_TABS)[number]>("Overview");
   const [showNewClient, setShowNewClient] = useState(false);
@@ -261,23 +259,9 @@ export default function AdminPage() {
     }
   }
 
-  async function loadBookings() {
-    setLoadingBookings(true);
-    setBookingsError("");
-    try {
-      const nextBookings = await apiRequest<any[]>("/api/admin/bookings");
-      setBookings(nextBookings);
-    } catch (error) {
-      setBookingsError(error instanceof Error ? error.message : "Failed to load bookings");
-    } finally {
-      setLoadingBookings(false);
-    }
-  }
-
   useEffect(() => {
     void loadClients();
     void loadAllLeads();
-    void loadBookings();
   }, []);
 
   useEffect(() => {
@@ -341,7 +325,7 @@ export default function AdminPage() {
               onRetry={() => void loadClients()}
               onSelect={(client) => {
                 setSelectedClientId(client.id);
-                setClientTab("Grok");
+                setClientTab("Diary");
               }}
               onNew={() => setShowNewClient(true)}
             />
@@ -367,15 +351,6 @@ export default function AdminPage() {
               loading={loadingLeads}
               error={leadsError}
               onRetry={() => void loadAllLeads()}
-            />
-          )}
-
-          {section === "bookings" && (
-            <BookingsSection
-              bookings={bookings}
-              loading={loadingBookings}
-              error={bookingsError}
-              onRetry={() => void loadBookings()}
             />
           )}
 
@@ -660,6 +635,8 @@ function ClientDetailSection({
         </OverviewTab>
       )}
 
+      {detail && activeTab === "Diary" && <ClientDiaryTab clientId={detail.client.id} clientName={detail.client.name} />}
+      {detail && activeTab === "Practice" && <ClientPracticeTab clientId={detail.client.id} clientName={detail.client.name} />}
       {detail && activeTab === "Grok" && <GrokSetupTab clientId={detail.client.id} />}
 
       {detail && activeTab === "Numbers" && (
@@ -2148,92 +2125,3 @@ function SimpleTable({ headers, rows }: { headers: string[]; rows: string[][] })
     </div>
   );
 }
-
-
-function BookingsSection({
-  bookings,
-  loading,
-  error,
-  onRetry,
-}: {
-  bookings: any[];
-  loading: boolean;
-  error: string;
-  onRetry: () => void;
-}) {
-  function formatWhen(value: string | null | undefined) {
-    if (!value) return "—";
-    try {
-      return new Date(value).toLocaleString("en-ZA", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return value;
-    }
-  }
-
-  return (
-    <div className={styles.section}>
-      <div className={styles.sectionHeaderRow}>
-        <h1 className={styles.pageTitle}>Bookings</h1>
-        <button className={styles.btnGhost} type="button" onClick={onRetry}>
-          Refresh
-        </button>
-      </div>
-      <p className={styles.sectionDesc}>
-        Self-hosted calendar. All meetings live in your database.
-      </p>
-
-      {loading ? (
-        <p className={styles.emptyState}>Loading bookings...</p>
-      ) : error ? (
-        <div className={styles.infoCard}>
-          <p className={styles.emptyState}>{error}</p>
-          <button className={styles.btnGhost} type="button" onClick={onRetry}>
-            Retry
-          </button>
-        </div>
-      ) : !bookings.length ? (
-        <p className={styles.emptyState}>No bookings yet.</p>
-      ) : (
-        <div className={styles.tableCard}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>When</th>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Contact</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    {formatWhen(row.startDateTime)}
-                    <div className={styles.tdMuted}>to {formatWhen(row.endDateTime)}</div>
-                  </td>
-                  <td className={styles.tdName}>{row.name || "—"}</td>
-                  <td>{row.meetingType || "—"}</td>
-                  <td>
-                    <div>{row.phone || "—"}</div>
-                    <div className={styles.tdMuted}>{row.email || ""}</div>
-                  </td>
-                  <td>
-                    <span className="tag tag-green">{row.status || "confirmed"}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-

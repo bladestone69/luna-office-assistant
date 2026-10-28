@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SpeakToGrok from "@/components/grok/SpeakToGrok";
-import { TRADES, tradePreset, type PracticeSetup, type TradeId } from "@/lib/practice-presets";
+import { tradeLabel, type PracticeSetup } from "@/lib/practice-presets";
 import styles from "./desk.module.css";
 
-type Section = "today" | "calendar" | "messages" | "calls" | "grok" | "practice";
+type Section = "today" | "calendar" | "messages" | "calls" | "grok";
 
 type Desk = {
   user: { name: string; email: string; role: string };
@@ -79,7 +79,6 @@ type Job = {
 const NAV: { id: Section; label: string }[] = [
   { id: "today", label: "Today" },
   { id: "calendar", label: "Diary" },
-  { id: "practice", label: "Practice" },
   { id: "messages", label: "Messages" },
   { id: "calls", label: "Calls" },
   { id: "grok", label: "Grok" },
@@ -196,7 +195,7 @@ export default function DashboardPage() {
       <aside className={styles.side}>
         <div className={styles.brand}>
           <strong>Aura</strong>
-          <span>Desk</span>
+          <span>{desk.client.name}</span>
         </div>
         <nav className={styles.nav}>
           {NAV.map((item) => (
@@ -224,7 +223,6 @@ export default function DashboardPage() {
           <Today desk={desk} upcoming={upcoming} messages={freshMessages} jobs={openJobs} onJump={setSection} />
         )}
         {section === "calendar" && <Diary desk={desk} onChanged={reload} />}
-        {section === "practice" && <Practice desk={desk} onChanged={reload} />}
         {section === "messages" && <Messages desk={desk} onChanged={reload} />}
         {section === "calls" && <Calls desk={desk} />}
         {section === "grok" && <Grok desk={desk} onChanged={reload} onOpenDiary={() => setSection("calendar")} />}
@@ -317,159 +315,6 @@ function Status({ desk }: { desk: Desk }) {
         {desk.line.grokReady ? "Grok live on the line" : "Grok briefed, phone key still off"}
       </span>
     </div>
-  );
-}
-
-function Practice({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void> }) {
-  const starting = desk.practice?.visitTypes?.length ? desk.practice : tradePreset("custom");
-  const [trade, setTrade] = useState<TradeId>(starting.trade);
-  const [visitTypes, setVisitTypes] = useState(starting.visitTypes);
-  const [questions, setQuestions] = useState(starting.questions);
-  const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  function pickTrade(next: TradeId) {
-    const preset = tradePreset(next);
-    setTrade(next);
-    setVisitTypes(preset.visitTypes);
-    setQuestions(preset.questions);
-    setMessage("Filled from that trade. Edit anything, then save.");
-  }
-
-  async function save() {
-    setSaving(true);
-    setMessage("");
-    try {
-      await api("/api/client/practice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trade, visitTypes, questions }),
-      });
-      setMessage("Saved. Grok uses these visit types and questions on the next call.");
-      await onChanged();
-    } catch (saveError) {
-      setMessage(saveError instanceof Error ? saveError.message : "Could not save");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <>
-      <header className={styles.top}>
-        <div>
-          <p className={styles.kicker}>Practice</p>
-          <h1 className={styles.title}>How Grok books</h1>
-          <p className={styles.lede}>Pick the trade. The visit lengths and the questions fill in. Change any line, add your own, then save. Grok only offers these visits, and asks these questions before it writes the diary.</p>
-        </div>
-      </header>
-      <form
-        className={styles.grid}
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save();
-        }}
-      >
-        <div className={`${styles.panel} ${styles.form}`}>
-          <span className={styles.label}>Trade</span>
-          <select value={trade} onChange={(event) => pickTrade(event.target.value as TradeId)}>
-            {TRADES.map((item) => (
-              <option key={item.id} value={item.id}>{item.label}</option>
-            ))}
-          </select>
-          <p className={styles.quiet}>{TRADES.find((item) => item.id === trade)?.blurb}</p>
-          <button className={styles.primary} type="submit" disabled={saving}>{saving ? "Saving" : "Save practice"}</button>
-          {message ? <p className={message.startsWith("Could") ? styles.error : styles.quiet}>{message}</p> : null}
-        </div>
-        <div className={`${styles.panel} ${styles.form}`}>
-          <span className={styles.label}>Visit types</span>
-          {visitTypes.map((item, index) => (
-            <div className={styles.editRow} key={`visit-${index}`}>
-              <input
-                placeholder="Name, for example Filling"
-                value={item.name}
-                required
-                onChange={(event) => {
-                  const next = visitTypes.slice();
-                  next[index] = { ...item, name: event.target.value };
-                  setVisitTypes(next);
-                }}
-              />
-              <input
-                type="number"
-                min={5}
-                max={480}
-                aria-label="Minutes"
-                value={item.minutes}
-                required
-                onChange={(event) => {
-                  const next = visitTypes.slice();
-                  next[index] = { ...item, minutes: Number(event.target.value) };
-                  setVisitTypes(next);
-                }}
-              />
-              <button
-                className={styles.tiny}
-                type="button"
-                disabled={visitTypes.length === 1}
-                onClick={() => setVisitTypes(visitTypes.filter((_, row) => row !== index))}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <div className={styles.actions}>
-            <button
-              className={styles.tiny}
-              type="button"
-              onClick={() => setVisitTypes([...visitTypes, { name: "", minutes: 30 }])}
-            >
-              Add visit
-            </button>
-          </div>
-        </div>
-        <div className={`${styles.panel} ${styles.form}`}>
-          <span className={styles.label}>Questions Grok must ask</span>
-          {questions.map((item, index) => (
-            <div className={styles.editRow} key={`question-${index}`}>
-              <input
-                placeholder="Question"
-                value={item.prompt}
-                onChange={(event) => {
-                  const next = questions.slice();
-                  next[index] = { ...item, prompt: event.target.value };
-                  setQuestions(next);
-                }}
-              />
-              <select
-                aria-label="Required"
-                value={item.required ? "yes" : "no"}
-                onChange={(event) => {
-                  const next = questions.slice();
-                  next[index] = { ...item, required: event.target.value === "yes" };
-                  setQuestions(next);
-                }}
-              >
-                <option value="yes">Required</option>
-                <option value="no">Optional</option>
-              </select>
-              <button className={styles.tiny} type="button" onClick={() => setQuestions(questions.filter((_, row) => row !== index))}>
-                Remove
-              </button>
-            </div>
-          ))}
-          <div className={styles.actions}>
-            <button
-              className={styles.tiny}
-              type="button"
-              onClick={() => setQuestions([...questions, { prompt: "", required: true }])}
-            >
-              Add question
-            </button>
-          </div>
-        </div>
-      </form>
-    </>
   );
 }
 
@@ -591,8 +436,12 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
       <header className={styles.top}>
         <div>
           <p className={styles.kicker}>Diary</p>
-          <h1 className={styles.title}>Your calendar</h1>
-          <p className={styles.lede}>This is Aura calendar, not Google. Appointments and call jobs for Grok sit on the same day. There is no cutoff on the time.</p>
+          <h1 className={styles.title}>{desk.client.name}</h1>
+          <p className={styles.lede}>
+            This diary is only yours. Admin set you up as {tradeLabel(desk.practice?.trade || "custom")}.
+            {" "}Visits: {(desk.practice?.visitTypes || []).map((item) => `${item.name} (${item.minutes} min)`).join(", ") || "not set yet"}.
+            The trade and the questions stay with admin.
+          </p>
         </div>
         <div className={styles.row}>
           <button className={styles.tiny} type="button" onClick={() => setOffset((value) => value - 1)}>Previous</button>
@@ -763,153 +612,6 @@ function Messages({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<vo
   );
 }
 
-type PromptAudience = "call" | "session";
-type PromptItem = { id: string; name: string; body: string; audience?: string; isDefault: boolean };
-
-const SESSION_STARTER = {
-  name: "Owner desk",
-  body: "This is a private web session with the owner, not a phone call. You know you are speaking to the user who owns this business. Help with the diary, callbacks, and what the phone agent should say to clients. Do not treat the owner as a caller.",
-};
-
-const CALL_STARTER = {
-  name: "Front desk",
-  body: "This is a phone call. The person speaking is a client or caller, not the owner. Answer with the company name, take a clear message, and offer a booking in office hours. Never invent a free slot.",
-};
-
-function PromptBlock({
-  audience,
-  title,
-  hint,
-  prompts,
-  starter,
-  onSend,
-}: {
-  audience: PromptAudience;
-  title: string;
-  hint: string;
-  prompts: PromptItem[];
-  starter: { name: string; body: string };
-  onSend: (action: Record<string, unknown>, ok: string) => Promise<void>;
-}) {
-  const [draft, setDraft] = useState({ name: "", body: "" });
-  const selected = prompts.find((prompt) => prompt.isDefault);
-  return (
-    <div className={styles.item}>
-      <div className={styles.itemHead}>
-        <h3>{title}</h3>
-        <span className={styles.meta}>{selected ? selected.name : "No default"}</span>
-      </div>
-      <p className={styles.quiet}>{hint}</p>
-      {prompts.map((prompt) => (
-        <div key={prompt.id}>
-          <p><strong>{prompt.name}</strong> {prompt.isDefault ? "· Default" : ""}</p>
-          <p>{prompt.body}</p>
-          {!prompt.isDefault ? (
-            <button className={styles.tiny} type="button" onClick={() => void onSend({ action: "default-prompt", promptId: prompt.id }, `${prompt.name} is now the default for this setup.`)}>
-              Make default
-            </button>
-          ) : null}
-        </div>
-      ))}
-      <button className={styles.tiny} type="button" onClick={() => setDraft(starter)}>Use {starter.name}</button>
-      <input placeholder="Prompt name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-      <textarea placeholder={audience === "call" ? "How Grok should treat a client on a call" : "How Grok should speak with you, the owner"} value={draft.body} onChange={(event) => setDraft({ ...draft, body: event.target.value })} />
-      <button
-        className={styles.primary}
-        type="button"
-        disabled={!draft.name || !draft.body}
-        onClick={() =>
-          void onSend(
-            { action: "add-prompt", name: draft.name, body: draft.body, makeDefault: prompts.length === 0, audience },
-            "Prompt added.",
-          ).then(() => setDraft({ name: "", body: "" }))
-        }
-      >
-        Add prompt
-      </button>
-    </div>
-  );
-}
-
-function ClientPromptSetup() {
-  const [setup, setSetup] = useState<{
-    voice: string;
-    greeting: string;
-    prompts: PromptItem[];
-    voices: { id: string; name: string; gender: string }[];
-  } | null>(null);
-  const [greeting, setGreeting] = useState("");
-  const [note, setNote] = useState("");
-
-  async function load() {
-    const data = await api<NonNullable<typeof setup>>("/api/client/grok");
-    setSetup(data);
-    setGreeting(data.greeting || "");
-  }
-
-  useEffect(() => {
-    load().catch((error) => setNote(error instanceof Error ? error.message : "Could not load Grok setup"));
-  }, []);
-
-  async function send(action: Record<string, unknown>, ok: string) {
-    setNote("");
-    try {
-      const data = await api<NonNullable<typeof setup>>("/api/client/grok", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(action),
-      });
-      setSetup(data);
-      setGreeting(data.greeting || "");
-      setNote(ok);
-    } catch (error) {
-      setNote(error instanceof Error ? error.message : "Could not save");
-    }
-  }
-
-  const callPrompts = (setup?.prompts || []).filter((prompt) => prompt.audience !== "session");
-  const sessionPrompts = (setup?.prompts || []).filter((prompt) => prompt.audience === "session");
-
-  return (
-    <div className={styles.panel}>
-      <span className={styles.label}>Voice</span>
-      <div className={styles.form}>
-        <select
-          value={setup?.voice || "eve"}
-          onChange={(event) => void send({ action: "voice", voice: event.target.value, greeting }, "Voice saved.")}
-        >
-          {(setup?.voices || [{ id: "eve", name: "Eve", gender: "female" }]).map((voice) => (
-            <option key={voice.id} value={voice.id}>
-              {voice.name}
-            </option>
-          ))}
-        </select>
-        <textarea placeholder="Opening line on a phone call" value={greeting} onChange={(event) => setGreeting(event.target.value)} />
-        <button className={styles.primary} type="button" onClick={() => void send({ action: "voice", voice: setup?.voice || "eve", greeting }, "Opening line saved.")}>
-          Save opening line
-        </button>
-        <PromptBlock
-          audience="call"
-          title="Phone call — speaking to a client"
-          hint="Used when someone calls. Grok treats the speaker as a client, not you."
-          prompts={callPrompts}
-          starter={CALL_STARTER}
-          onSend={send}
-        />
-        <PromptBlock
-          audience="session"
-          title="Owner session — speaking to you"
-          hint="Used when you press Speak to Grok. Grok knows it is talking to the owner."
-          prompts={sessionPrompts}
-          starter={SESSION_STARTER}
-          onSend={send}
-        />
-        {note ? <p className={styles.note}>{note}</p> : null}
-      </div>
-    </div>
-  );
-}
-
 function Calls({ desk }: { desk: Desk }) {
   return (
     <>
@@ -1016,7 +718,7 @@ function Grok({ desk, onChanged, onOpenDiary }: { desk: Desk; onChanged: () => P
           <p className={styles.kicker}>Grok</p>
           <h1 className={styles.title}>Give Grok the work</h1>
           <p className={styles.lede}>
-            Phone calls use the client prompt. Speak to Grok is a live voice session with you, the owner.
+            Speak to Grok, or hand over a job. Voice, prompts, and the trade are set by admin, not from this screen.
           </p>
         </div>
         <Status desk={desk} />
@@ -1036,9 +738,7 @@ function Grok({ desk, onChanged, onOpenDiary }: { desk: Desk; onChanged: () => P
           }}
         />
       </section>
-      <section className={styles.grid}>
-        <ClientPromptSetup />
-        <form className={`${styles.panel} ${styles.form}`} onSubmit={(event) => void saveJob(event)}>
+      <form className={`${styles.panel} ${styles.form}`} onSubmit={(event) => void saveJob(event)}>
           <span className={styles.label}>A job</span>
           <input placeholder="Call the supplier back" value={job.title} onChange={(event) => setJob({ ...job, title: event.target.value })} required />
           <textarea placeholder="What Grok should say or do." value={job.details} onChange={(event) => setJob({ ...job, details: event.target.value })} />
@@ -1051,7 +751,6 @@ function Grok({ desk, onChanged, onOpenDiary }: { desk: Desk; onChanged: () => P
           </label>
           <button className={styles.primary} type="submit" disabled={busy === "job"}>{busy === "job" ? "Saving" : "Hand it to Grok"}</button>
         </form>
-      </section>
       {note ? <p className={styles.note}>{note}</p> : null}
       <section className={styles.grid} style={{ marginTop: 16 }}>
         <div className={styles.panel}>

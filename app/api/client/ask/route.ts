@@ -1,28 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readClientSession } from "@/lib/client-access";
-import { addClientBooking, addClientJob, loadClientDesk, saveClientBrief } from "@/lib/client-desk";
+import { addClientBooking, addClientJob, loadClientDesk } from "@/lib/client-desk";
 import { practiceBrief } from "@/lib/practice-presets";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const TOOLS = [
-  {
-    type: "function",
-    function: {
-      name: "save_brief",
-      description: "Save how Grok should answer the phone for this business.",
-      parameters: {
-        type: "object",
-        properties: {
-          instructions: { type: "string" },
-          greeting: { type: "string" },
-          voice: { type: "string", enum: ["eve", "ara", "rex", "sal"] },
-        },
-        required: ["instructions"],
-      },
-    },
-  },
   {
     type: "function",
     function: {
@@ -116,7 +100,7 @@ export async function POST(request: NextRequest) {
     "This is not a phone call. The owner is not a client and not a caller.",
     "When a phone prompt is discussed, that prompt is for clients who call the business.",
     "Use only this desk. Do not invent bookings, messages, or calls.",
-    "When they ask you to book, brief the phone agent, or take a job, call the matching tool.",
+    "The trade, visit types, voice, and phone prompt are set by the admin. Do not offer to change them.",
     `Voice on the line: ${desk.line.voice}. Number: ${desk.line.number || "not assigned"}.`,
     `Current brief: ${desk.line.instructions || "none yet"}.`,
     `Opening line: ${desk.line.greeting || "none yet"}.`,
@@ -140,7 +124,7 @@ export async function POST(request: NextRequest) {
     for (const call of toolCalls) {
       const name = call.function?.name || "";
       const args = parseArgs(call.function?.arguments);
-      const output = await runTool(session.clientId, name, args, desk.line);
+      const output = await runTool(session.clientId, name, args);
       if (output.ok) changed = true;
       toolMessages.push({
         role: "tool",
@@ -198,21 +182,8 @@ function parseArgs(value: unknown) {
   }
 }
 
-async function runTool(
-  clientId: string,
-  name: string,
-  args: Record<string, unknown>,
-  line: { instructions: string; greeting: string; voice: string },
-) {
+async function runTool(clientId: string, name: string, args: Record<string, unknown>) {
   try {
-    if (name === "save_brief") {
-      await saveClientBrief(clientId, {
-        instructions: String(args.instructions || line.instructions || ""),
-        greeting: String(args.greeting || line.greeting || ""),
-        voice: String(args.voice || line.voice || "eve"),
-      });
-      return { ok: true, saved: "brief" };
-    }
     if (name === "add_job") {
       const result = await addClientJob(clientId, {
         title: String(args.title || ""),
