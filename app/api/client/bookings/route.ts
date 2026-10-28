@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
       meetingType: typeof body?.meetingType === "string" ? body.meetingType : "Appointment",
       start: typeof body?.start === "string" ? body.start : "",
       notes: typeof body?.notes === "string" ? body.notes : "",
+      answers: typeof body?.answers === "string" ? body.answers : "",
       minutes: Number(body?.minutes),
     });
     return NextResponse.json({ ok: true, id });

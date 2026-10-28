@@ -8,6 +8,8 @@ import { APP_TIMEZONE } from "@/lib/constants";
 import { workBriefForClient } from "@/lib/desk-context";
 import { defaultPromptBody } from "@/lib/grok-setup";
 import { takeCallOrder } from "@/lib/call-orders";
+import { getPractice, practiceBriefFor } from "@/lib/practice";
+import { matchVisit } from "@/lib/practice-presets";
 
 export type GrokCallConfig = {
   clientId: string | null;
@@ -45,10 +47,11 @@ const TOOLS = [
         name: { type: "string" },
         phone: { type: "string" },
         email: { type: "string" },
-        meeting_type: { type: "string" },
+        meeting_type: { type: "string", description: "Exact visit type name from the practice setup" },
         start_iso: { type: "string", description: "Local Johannesburg time, any hour, for example 2026-10-28T21:30" },
-        duration_minutes: { type: "number" },
+        duration_minutes: { type: "number", description: "Ignored when meeting_type matches a visit type. The visit type sets the length." },
         notes: { type: "string" },
+        answers: { type: "string", description: "One line per practice question, written as Question: answer" },
       },
       required: ["name", "phone", "start_iso"],
     },
@@ -115,6 +118,7 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
     ? `Start the call by saying: ${greeting.trim()}\n`
     : "";
   const work = clientId ? await workBriefForClient(clientId) : "";
+  const practice = clientId ? await practiceBriefFor(clientId) : "";
   if (clientId) {
     const order = await takeCallOrder(clientId);
     if (order) {
@@ -144,7 +148,7 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
     voice,
     from,
     to,
-    instructions: `${callerFrame}${opening}${base}\nCaller number: ${from || "unknown"}. Business: ${businessName}. Times are Africa/Johannesburg. There is no office-hour cutoff. Book any time, including late at night.\n${work}`,
+    instructions: `${callerFrame}${opening}${base}\nCaller number: ${from || "unknown"}. Business: ${businessName}. Times are Africa/Johannesburg. There is no office-hour cutoff. Book any time, including late at night.\n${practice}\n${work}`,
   };
 }
 
@@ -272,7 +276,16 @@ async function runTool(name: string, args: any, config: GrokCallConfig) {
   if (name === "book_appointment") {
     const start = DateTime.fromISO(String(args.start_iso || ""), { zone: APP_TIMEZONE });
     if (!start.isValid) return { ok: false, error: "Invalid start time" };
-    const minutes = Number(args.duration_minutes) > 0 ? Number(args.duration_minutes) : 30;
+    const practice = config.clientId ? await getPractice(config.clientId) : null;
+    const requestedName = String(args.meeting_type || "Appointment");
+    const visit = practice ? matchVisit(practice, requestedName) : null;
+    const requested = Math.round(Number(args.duration_minutes));
+    const minutes = visit
+      ? visit.minutes
+      : Number.isFinite(requested) && requested >= 5 && requested <= 480
+        ? requested
+        : 30;
+    const meetingType = visit?.name || requestedName;
     const end = start.plus({ minutes });
     const free = await isSlotAvailable(start.toISO()!, end.toISO()!, config.clientId);
     if (!free) return { ok: false, error: "That time is already booked" };
@@ -280,14 +293,15 @@ async function runTool(name: string, args: any, config: GrokCallConfig) {
       name: String(args.name || "Caller"),
       phone: String(args.phone || config.from || ""),
       email: String(args.email || ""),
-      meetingTypeLabel: String(args.meeting_type || "Appointment"),
+      meetingTypeLabel: meetingType,
       startIso: start.toISO()!,
       endIso: end.toISO()!,
       clientId: config.clientId,
       notes: String(args.notes || ""),
+      answers: String(args.answers || ""),
       consent: true,
     });
-    return { ok: true, bookingId: id, start: start.toISO(), end: end.toISO() };
+    return { ok: true, saved: true, bookingId: id, meetingType, minutes, start: start.toISO(), end: end.toISO() };
   }
 
   return { ok: false, error: `Unknown tool ${name}` };

@@ -8,6 +8,8 @@ import { APP_TIMEZONE } from "@/lib/constants";
 import { workBriefForClient } from "@/lib/desk-context";
 import { dialTask } from "@/lib/due-calls";
 import { normalizePhone } from "@/lib/grok-call";
+import { getPractice } from "@/lib/practice";
+import { matchVisit } from "@/lib/practice-presets";
 
 const VOICES = ["eve", "ara", "rex", "sal"] as const;
 
@@ -99,6 +101,7 @@ export async function loadClientDesk(clientId: string, userId: string) {
       when: whenLabel(row.startDateTime),
       status: row.status || "confirmed",
       notes: row.notes || "",
+      answers: row.answers || "",
     })),
     messages: leadRows.map((row) => ({
       id: row.id,
@@ -139,6 +142,7 @@ export async function loadClientDesk(clientId: string, userId: string) {
     })),
     upcomingCount: bookingRows.filter((row) => row.status === "confirmed" && row.startDateTime.getTime() >= now).length,
     work: await workBriefForClient(clientId),
+    practice: await getPractice(clientId),
   };
 }
 
@@ -236,12 +240,20 @@ export async function addClientBooking(
     date?: string;
     time?: string;
     notes?: string;
+    answers?: string;
     minutes?: number;
   },
 ) {
   const start = parseBookingStart(input);
   if (!start.isValid) throw new Error("Not saved. Give a day and a time, for example 2026-10-28 14:00.");
-  const minutes = [15, 30, 60].includes(Number(input.minutes)) ? Number(input.minutes) : 30;
+  const practice = await getPractice(clientId);
+  const visit = matchVisit(practice, input.meetingType);
+  const requested = Math.round(Number(input.minutes));
+  const minutes = visit
+    ? visit.minutes
+    : Number.isFinite(requested) && requested >= 5 && requested <= 480
+      ? requested
+      : 30;
   const end = start.plus({ minutes });
 
   const clash = await db
@@ -259,6 +271,7 @@ export async function addClientBooking(
   if (clash[0]) throw new Error("Not saved. That time is already booked.");
 
   const name = input.name.trim().slice(0, 120) || "Appointment";
+  const meetingType = visit?.name || input.meetingType.trim().slice(0, 80) || "Appointment";
   const [row] = await db
     .insert(bookings)
     .values({
@@ -266,12 +279,13 @@ export async function addClientBooking(
       name,
       phone: input.phone.trim().slice(0, 40),
       email: input.email?.trim().slice(0, 160) || null,
-      meetingType: input.meetingType.trim().slice(0, 80) || "Appointment",
-      title: `${input.meetingType.trim() || "Appointment"} - ${name}`,
+      meetingType,
+      title: `${meetingType} - ${name}`,
       startDateTime: start.toJSDate(),
       endDateTime: end.toJSDate(),
       status: "confirmed",
       notes: input.notes?.trim().slice(0, 1000) || null,
+      answers: input.answers?.trim().slice(0, 2000) || null,
       consent: true,
     })
     .returning({ id: bookings.id });

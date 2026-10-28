@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SpeakToGrok from "@/components/grok/SpeakToGrok";
+import { TRADES, tradePreset, type PracticeSetup, type TradeId } from "@/lib/practice-presets";
 import styles from "./desk.module.css";
 
-type Section = "today" | "calendar" | "messages" | "calls" | "grok";
+type Section = "today" | "calendar" | "messages" | "calls" | "grok" | "practice";
 
 type Desk = {
   user: { name: string; email: string; role: string };
@@ -23,6 +24,7 @@ type Desk = {
   messages: Message[];
   calls: CallItem[];
   jobs: Job[];
+  practice: PracticeSetup;
 };
 
 type Booking = {
@@ -36,6 +38,7 @@ type Booking = {
   when: string;
   status: string;
   notes: string;
+  answers: string;
 };
 
 type Message = {
@@ -76,6 +79,7 @@ type Job = {
 const NAV: { id: Section; label: string }[] = [
   { id: "today", label: "Today" },
   { id: "calendar", label: "Diary" },
+  { id: "practice", label: "Practice" },
   { id: "messages", label: "Messages" },
   { id: "calls", label: "Calls" },
   { id: "grok", label: "Grok" },
@@ -220,6 +224,7 @@ export default function DashboardPage() {
           <Today desk={desk} upcoming={upcoming} messages={freshMessages} jobs={openJobs} onJump={setSection} />
         )}
         {section === "calendar" && <Diary desk={desk} onChanged={reload} />}
+        {section === "practice" && <Practice desk={desk} onChanged={reload} />}
         {section === "messages" && <Messages desk={desk} onChanged={reload} />}
         {section === "calls" && <Calls desk={desk} />}
         {section === "grok" && <Grok desk={desk} onChanged={reload} onOpenDiary={() => setSection("calendar")} />}
@@ -315,10 +320,174 @@ function Status({ desk }: { desk: Desk }) {
   );
 }
 
+function Practice({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void> }) {
+  const starting = desk.practice?.visitTypes?.length ? desk.practice : tradePreset("custom");
+  const [trade, setTrade] = useState<TradeId>(starting.trade);
+  const [visitTypes, setVisitTypes] = useState(starting.visitTypes);
+  const [questions, setQuestions] = useState(starting.questions);
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function pickTrade(next: TradeId) {
+    const preset = tradePreset(next);
+    setTrade(next);
+    setVisitTypes(preset.visitTypes);
+    setQuestions(preset.questions);
+    setMessage("Filled from that trade. Edit anything, then save.");
+  }
+
+  async function save() {
+    setSaving(true);
+    setMessage("");
+    try {
+      await api("/api/client/practice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trade, visitTypes, questions }),
+      });
+      setMessage("Saved. Grok uses these visit types and questions on the next call.");
+      await onChanged();
+    } catch (saveError) {
+      setMessage(saveError instanceof Error ? saveError.message : "Could not save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <header className={styles.top}>
+        <div>
+          <p className={styles.kicker}>Practice</p>
+          <h1 className={styles.title}>How Grok books</h1>
+          <p className={styles.lede}>Pick the trade. The visit lengths and the questions fill in. Change any line, add your own, then save. Grok only offers these visits, and asks these questions before it writes the diary.</p>
+        </div>
+      </header>
+      <form
+        className={styles.grid}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        <div className={`${styles.panel} ${styles.form}`}>
+          <span className={styles.label}>Trade</span>
+          <select value={trade} onChange={(event) => pickTrade(event.target.value as TradeId)}>
+            {TRADES.map((item) => (
+              <option key={item.id} value={item.id}>{item.label}</option>
+            ))}
+          </select>
+          <p className={styles.quiet}>{TRADES.find((item) => item.id === trade)?.blurb}</p>
+          <button className={styles.primary} type="submit" disabled={saving}>{saving ? "Saving" : "Save practice"}</button>
+          {message ? <p className={message.startsWith("Could") ? styles.error : styles.quiet}>{message}</p> : null}
+        </div>
+        <div className={`${styles.panel} ${styles.form}`}>
+          <span className={styles.label}>Visit types</span>
+          {visitTypes.map((item, index) => (
+            <div className={styles.editRow} key={`visit-${index}`}>
+              <input
+                placeholder="Name, for example Filling"
+                value={item.name}
+                required
+                onChange={(event) => {
+                  const next = visitTypes.slice();
+                  next[index] = { ...item, name: event.target.value };
+                  setVisitTypes(next);
+                }}
+              />
+              <input
+                type="number"
+                min={5}
+                max={480}
+                aria-label="Minutes"
+                value={item.minutes}
+                required
+                onChange={(event) => {
+                  const next = visitTypes.slice();
+                  next[index] = { ...item, minutes: Number(event.target.value) };
+                  setVisitTypes(next);
+                }}
+              />
+              <button
+                className={styles.tiny}
+                type="button"
+                disabled={visitTypes.length === 1}
+                onClick={() => setVisitTypes(visitTypes.filter((_, row) => row !== index))}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <div className={styles.actions}>
+            <button
+              className={styles.tiny}
+              type="button"
+              onClick={() => setVisitTypes([...visitTypes, { name: "", minutes: 30 }])}
+            >
+              Add visit
+            </button>
+          </div>
+        </div>
+        <div className={`${styles.panel} ${styles.form}`}>
+          <span className={styles.label}>Questions Grok must ask</span>
+          {questions.map((item, index) => (
+            <div className={styles.editRow} key={`question-${index}`}>
+              <input
+                placeholder="Question"
+                value={item.prompt}
+                onChange={(event) => {
+                  const next = questions.slice();
+                  next[index] = { ...item, prompt: event.target.value };
+                  setQuestions(next);
+                }}
+              />
+              <select
+                aria-label="Required"
+                value={item.required ? "yes" : "no"}
+                onChange={(event) => {
+                  const next = questions.slice();
+                  next[index] = { ...item, required: event.target.value === "yes" };
+                  setQuestions(next);
+                }}
+              >
+                <option value="yes">Required</option>
+                <option value="no">Optional</option>
+              </select>
+              <button className={styles.tiny} type="button" onClick={() => setQuestions(questions.filter((_, row) => row !== index))}>
+                Remove
+              </button>
+            </div>
+          ))}
+          <div className={styles.actions}>
+            <button
+              className={styles.tiny}
+              type="button"
+              onClick={() => setQuestions([...questions, { prompt: "", required: true }])}
+            >
+              Add question
+            </button>
+          </div>
+        </div>
+      </form>
+    </>
+  );
+}
+
 function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void> }) {
+  const types = desk.practice?.visitTypes?.length ? desk.practice.visitTypes : [{ name: "Appointment", minutes: 30 }];
+  const questions = desk.practice?.questions || [];
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState(dayKey(new Date()));
-  const [form, setForm] = useState({ name: "", phone: "", email: "", meetingType: "Appointment", start: "", minutes: "30", notes: "" });
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    meetingType: types[0].name,
+    start: "",
+    minutes: String(types[0].minutes),
+    notes: "",
+    answers: {} as Record<string, string>,
+  });
   const [work, setWork] = useState({ name: "", phone: "", when: "", instruction: "" });
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -373,9 +542,27 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
       await api("/api/client/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          answers: questions
+            .map((question) => {
+              const value = (form.answers[question.prompt] || "").trim();
+              return value ? `${question.prompt}: ${value}` : "";
+            })
+            .filter(Boolean)
+            .join("\n"),
+        }),
       });
-      setForm({ name: "", phone: "", email: "", meetingType: "Appointment", start: "", minutes: "30", notes: "" });
+      setForm({
+        name: "",
+        phone: "",
+        email: "",
+        meetingType: types[0].name,
+        start: "",
+        minutes: String(types[0].minutes),
+        notes: "",
+        answers: {},
+      });
       setMessage("Booked. Grok will treat that time as busy.");
       await onChanged();
     } catch (saveError) {
@@ -438,6 +625,7 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
                   <span className={styles.meta}>{booking.status}</span>
                 </div>
                 <p>{booking.when} · {booking.name} · {booking.phone || "No phone"}</p>
+                {booking.answers ? <p>{booking.answers}</p> : null}
                 {booking.notes ? <p>{booking.notes}</p> : null}
                 {booking.status === "confirmed" ? (
                   <div className={styles.actions}>
@@ -479,13 +667,28 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
             <input placeholder="Email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
           </div>
           <div className={styles.split}>
-            <input placeholder="Meeting type" value={form.meetingType} onChange={(event) => setForm({ ...form, meetingType: event.target.value })} />
-            <select value={form.minutes} onChange={(event) => setForm({ ...form, minutes: event.target.value })}>
-              <option value="15">15 min</option>
-              <option value="30">30 min</option>
-              <option value="60">60 min</option>
+            <select
+              value={form.meetingType}
+              onChange={(event) => {
+                const found = types.find((item) => item.name === event.target.value);
+                setForm({ ...form, meetingType: event.target.value, minutes: String(found?.minutes || 30) });
+              }}
+            >
+              {types.map((item) => (
+                <option key={item.name} value={item.name}>{item.name}</option>
+              ))}
             </select>
+            <input value={`${form.minutes} minutes`} readOnly aria-label="Visit length" />
           </div>
+          {questions.map((question) => (
+            <input
+              key={question.prompt}
+              placeholder={question.required ? `${question.prompt} *` : question.prompt}
+              value={form.answers[question.prompt] || ""}
+              required={question.required}
+              onChange={(event) => setForm({ ...form, answers: { ...form.answers, [question.prompt]: event.target.value } })}
+            />
+          ))}
           <input type="datetime-local" value={form.start} onChange={(event) => setForm({ ...form, start: event.target.value })} required />
           <textarea placeholder="Notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
           <button className={styles.primary} type="submit" disabled={saving}>{saving ? "Saving" : "Book it"}</button>

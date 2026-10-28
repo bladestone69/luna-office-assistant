@@ -318,6 +318,13 @@ button.card {
   gap: 10px;
 }
 
+.editRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 118px auto;
+  gap: 10px;
+  align-items: center;
+}
+
 .primary,
 .ghost,
 .tiny {
@@ -435,6 +442,7 @@ button.card {
   .grid,
   .cards,
   .split,
+  .editRow,
   .week {
     grid-template-columns: 1fr;
   }

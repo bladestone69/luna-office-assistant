@@ -112,6 +112,7 @@ export async function createPrivacySafeEvent(input: {
   contactId?: string | null;
   leadId?: string | null;
   notes?: string;
+  answers?: string;
   consent?: boolean;
 }) {
   const summary = `Meeting - ${getFirstName(input.name)} - ${input.phone}`;
@@ -131,6 +132,7 @@ export async function createPrivacySafeEvent(input: {
       endDateTime: DateTime.fromISO(input.endIso).toJSDate(),
       status: "confirmed",
       notes: input.notes || `Scheduled via Aura. Type: ${input.meetingTypeLabel}`,
+      answers: input.answers || null,
       consent: input.consent ?? false,
     })
     .returning({ id: bookings.id });

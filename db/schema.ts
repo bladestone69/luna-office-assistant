@@ -147,6 +147,7 @@ export const bookings = pgTable("bookings", {
   endDateTime: timestamp("end_date_time").notNull(),
   status: bookingStatusEnum("status").default("confirmed"),
   notes: text("notes"),
+  answers: text("answers"),
   consent: boolean("consent").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -166,6 +167,14 @@ export const tasks = pgTable("tasks", {
   placeCall: boolean("place_call").default(false).notNull(),
   callError: text("call_error"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const practiceProfiles = pgTable("practice_profiles", {
+  clientId: uuid("client_id").primaryKey().references(() => clients.id, { onDelete: "cascade" }),
+  trade: text("trade").notNull().default("custom"),
+  visitTypes: text("visit_types").notNull().default("[]"),
+  questions: text("questions").notNull().default("[]"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

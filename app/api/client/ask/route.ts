@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readClientSession } from "@/lib/client-access";
 import { addClientBooking, addClientJob, loadClientDesk, saveClientBrief } from "@/lib/client-desk";
+import { practiceBrief } from "@/lib/practice-presets";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -53,8 +54,9 @@ const TOOLS = [
           date: { type: "string", description: "YYYY-MM-DD in Africa/Johannesburg" },
           time: { type: "string", description: "HH:mm, 24 hour" },
           start: { type: "string", description: "Local date time, for example 2026-10-27T10:00" },
-          minutes: { type: "number" },
+          minutes: { type: "number", description: "Ignored when meeting_type matches a visit type" },
           notes: { type: "string" },
+          answers: { type: "string", description: "Practice question answers, one line each as Question: answer" },
         },
         required: ["name", "date", "time"],
       },
@@ -119,6 +121,7 @@ export async function POST(request: NextRequest) {
     `Current brief: ${desk.line.instructions || "none yet"}.`,
     `Opening line: ${desk.line.greeting || "none yet"}.`,
     desk.work,
+    practiceBrief(desk.practice),
   ].join("\n");
 
   try {
@@ -228,6 +231,7 @@ async function runTool(
         date: String(args.date || ""),
         time: String(args.time || ""),
         notes: String(args.notes || ""),
+        answers: String(args.answers || ""),
         minutes: Number(args.minutes),
       });
       return { ok: true, bookingId: id };

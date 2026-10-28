@@ -6,6 +6,7 @@ import { clients } from "@/db/schema";
 import { workBriefForClient } from "@/lib/desk-context";
 import { addClientBooking, addClientJob } from "@/lib/client-desk";
 import { defaultPromptBody, getGrokSetup } from "@/lib/grok-setup";
+import { practiceBriefFor } from "@/lib/practice";
 
 export async function mintOwnerSession(clientId: string, ownerName: string) {
   const apiKey = process.env.XAI_API_KEY;
@@ -20,6 +21,7 @@ export async function mintOwnerSession(clientId: string, ownerName: string) {
   const prompt = (await defaultPromptBody(clientId, "session")) ||
     "Help the owner run the business. Talk about the diary, callbacks, and what the phone agent should say to clients.";
   const work = await workBriefForClient(clientId);
+  const practice = await practiceBriefFor(clientId);
   const nowLabel = new Intl.DateTimeFormat("en-ZA", {
     timeZone: "Africa/Johannesburg",
     weekday: "long",
@@ -37,9 +39,11 @@ export async function mintOwnerSession(clientId: string, ownerName: string) {
     prompt,
     `Opening: greet ${ownerName} by name and wait for what they need.`,
     work,
+    practice,
     `Now in Johannesburg: ${nowLabel}.`,
     "Diary rule: talking does not save an appointment. The diary changes only when you call book_appointment and the result says saved true.",
-    "Once the owner confirms who it is for and the day and time, call book_appointment immediately. Do not ask them to confirm again.",
+    "Once the owner confirms who it is for, the visit type, and the day and time, call book_appointment immediately. Do not ask them to confirm again.",
+    "meeting_type must be one of the visit types in the practice setup. The visit type sets the length. Put the practice-question answers in the answers field.",
     "Pass date as YYYY-MM-DD and time as HH:mm, 24 hour, Africa/Johannesburg. Any time of day or night is allowed.",
     "If the owner wants a person called at a time, call schedule_call with the phone number, the day, the time, and the instruction. That is what makes Grok dial.",
     "If the tool result says saved false, tell the owner the exact reason and do not say it was saved.",
@@ -89,6 +93,7 @@ export async function runOwnerTool(clientId: string, name: string, args: Record<
       date: String(args.date || args.day || ""),
       time: String(args.time || ""),
       notes: String(args.notes || ""),
+      answers: String(args.answers || ""),
       minutes: Number(args.minutes || args.duration_minutes || args.duration),
     });
     return {
