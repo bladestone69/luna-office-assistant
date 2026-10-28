@@ -9,6 +9,15 @@
     },
     "app/api/client/ask/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/cron/calls/route.ts": {
+      "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/calls",
+      "schedule": "* * * * *"
+    }
+  ]
 }

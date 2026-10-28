@@ -42,7 +42,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "book_appointment",
-      description: "Put a meeting on this business diary. Time is Africa/Johannesburg, 08:00 to 17:00.",
+      description: "Put a meeting on this business diary. Any time of day or night in Africa/Johannesburg.",
       parameters: {
         type: "object",
         properties: {
@@ -57,6 +57,24 @@ const TOOLS = [
           notes: { type: "string" },
         },
         required: ["name", "date", "time"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "schedule_call",
+      description: "Phone someone at a set Johannesburg time and follow an instruction.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          phone: { type: "string" },
+          date: { type: "string" },
+          time: { type: "string" },
+          instruction: { type: "string" },
+        },
+        required: ["name", "phone", "date", "time", "instruction"],
       },
     },
   },
@@ -213,6 +231,19 @@ async function runTool(
         minutes: Number(args.minutes),
       });
       return { ok: true, bookingId: id };
+    }
+    if (name === "schedule_call") {
+      const who = String(args.name || "them");
+      const date = String(args.date || "");
+      const time = String(args.time || "");
+      const result = await addClientJob(clientId, {
+        title: `Call ${who}`,
+        details: String(args.instruction || ""),
+        phone: String(args.phone || ""),
+        dueAt: date && time ? `${date}T${time}` : "",
+        placeCall: true,
+      });
+      return { ok: true, jobId: result.id, saved: true };
     }
     return { ok: false, error: "Unknown tool" };
   } catch (error) {

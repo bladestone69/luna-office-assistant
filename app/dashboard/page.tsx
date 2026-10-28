@@ -66,6 +66,10 @@ type Job = {
   details: string;
   status: string;
   when: string;
+  dueAt: string;
+  phone: string;
+  placeCall: boolean;
+  callError: string;
   open: boolean;
 };
 
@@ -218,7 +222,7 @@ export default function DashboardPage() {
         {section === "calendar" && <Diary desk={desk} onChanged={reload} />}
         {section === "messages" && <Messages desk={desk} onChanged={reload} />}
         {section === "calls" && <Calls desk={desk} />}
-        {section === "grok" && <Grok desk={desk} onChanged={reload} />}
+        {section === "grok" && <Grok desk={desk} onChanged={reload} onOpenDiary={() => setSection("calendar")} />}
       </main>
     </div>
   );
@@ -315,10 +319,52 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState(dayKey(new Date()));
   const [form, setForm] = useState({ name: "", phone: "", email: "", meetingType: "Appointment", start: "", minutes: "30", notes: "" });
+  const [work, setWork] = useState({ name: "", phone: "", when: "", instruction: "" });
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const days = useMemo(() => weekDays(offset), [offset]);
   const visible = desk.bookings.filter((booking) => booking.status !== "cancelled" && dayKey(booking.start) === selected);
+  const jobs = desk.jobs.filter((job) => job.status !== "done" && job.dueAt && dayKey(job.dueAt) === selected);
+
+  async function saveWork() {
+    setSaving(true);
+    setMessage("");
+    try {
+      await api("/api/client/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `Call ${work.name || "them"}`,
+          details: work.instruction,
+          phone: work.phone,
+          dueAt: work.when,
+          placeCall: true,
+        }),
+      });
+      setWork({ name: "", phone: "", when: "", instruction: "" });
+      setMessage("Saved. Grok will call that number at that time.");
+      await onChanged();
+    } catch (saveError) {
+      setMessage(saveError instanceof Error ? saveError.message : "Could not save the call");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function callAgain(id: string) {
+    setMessage("");
+    try {
+      await api("/api/client/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "call-now", id }),
+      });
+      setMessage("The call is going out now.");
+      await onChanged();
+    } catch (callError) {
+      setMessage(callError instanceof Error ? callError.message : "The call was not placed");
+    }
+  }
 
   async function saveBooking() {
     setSaving(true);
@@ -359,7 +405,7 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
         <div>
           <p className={styles.kicker}>Diary</p>
           <h1 className={styles.title}>Your calendar</h1>
-          <p className={styles.lede}>This is Aura calendar, not Google. Anything confirmed here is busy when Grok books a caller.</p>
+          <p className={styles.lede}>This is Aura calendar, not Google. Appointments and call jobs for Grok sit on the same day. There is no cutoff on the time.</p>
         </div>
         <div className={styles.row}>
           <button className={styles.tiny} type="button" onClick={() => setOffset((value) => value - 1)}>Previous</button>
@@ -370,7 +416,8 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
       <div className={styles.week}>
         {days.map((date) => {
           const key = dayKey(date);
-          const count = desk.bookings.filter((booking) => booking.status === "confirmed" && dayKey(booking.start) === key).length;
+          const count = desk.bookings.filter((booking) => booking.status === "confirmed" && dayKey(booking.start) === key).length
+            + desk.jobs.filter((job) => job.status !== "done" && job.dueAt && dayKey(job.dueAt) === key).length;
           return (
             <button key={key} className={styles.day} type="button" data-on={selected === key} onClick={() => setSelected(key)}>
               <small>{new Intl.DateTimeFormat("en-ZA", { timeZone: ZONE, weekday: "short" }).format(date)}</small>
@@ -399,7 +446,23 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
                 ) : null}
               </article>
             ))}
-            {!visible.length && <p className={styles.empty}>Nothing booked on this day.</p>}
+            {!visible.length && !jobs.length && <p className={styles.empty}>Nothing on this day.</p>}
+            {jobs.map((job) => (
+              <article key={job.id} className={styles.item}>
+                <div className={styles.itemHead}>
+                  <h3>{job.title}</h3>
+                  <span className={styles.meta}>{job.placeCall ? "Call queued" : job.status}</span>
+                </div>
+                <p>{job.when} · {job.phone || "No phone"}</p>
+                {job.details ? <p>{job.details}</p> : null}
+                {job.callError ? <p className={styles.error}>{job.callError}</p> : null}
+                {job.phone ? (
+                  <div className={styles.actions}>
+                    <button className={styles.tiny} type="button" onClick={() => void callAgain(job.id)}>Call now</button>
+                  </div>
+                ) : null}
+              </article>
+            ))}
           </div>
         </div>
         <form
@@ -426,7 +489,21 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
           <input type="datetime-local" value={form.start} onChange={(event) => setForm({ ...form, start: event.target.value })} required />
           <textarea placeholder="Notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
           <button className={styles.primary} type="submit" disabled={saving}>{saving ? "Saving" : "Book it"}</button>
-          {message ? <p className={message.startsWith("Booked") ? styles.quiet : styles.error}>{message}</p> : null}
+          {message ? <p className={message.startsWith("Booked") || message.startsWith("Saved") || message.startsWith("The call") ? styles.quiet : styles.error}>{message}</p> : null}
+        </form>
+        <form
+          className={`${styles.panel} ${styles.form}`}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void saveWork();
+          }}
+        >
+          <span className={styles.label}>Add work for Grok</span>
+          <input placeholder="Who to call, for example Ben" value={work.name} onChange={(event) => setWork({ ...work, name: event.target.value })} required />
+          <input placeholder="Phone, for example 0113334499" value={work.phone} onChange={(event) => setWork({ ...work, phone: event.target.value })} required />
+          <input type="datetime-local" value={work.when} onChange={(event) => setWork({ ...work, when: event.target.value })} required />
+          <textarea placeholder="What Grok must do on the call. Ask Ben for the payment." value={work.instruction} onChange={(event) => setWork({ ...work, instruction: event.target.value })} required />
+          <button className={styles.primary} type="submit" disabled={saving}>{saving ? "Saving" : "Grok calls at this time"}</button>
         </form>
       </section>
     </>
@@ -668,7 +745,7 @@ function Calls({ desk }: { desk: Desk }) {
   );
 }
 
-function Grok({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void> }) {
+function Grok({ desk, onChanged, onOpenDiary }: { desk: Desk; onChanged: () => Promise<void>; onOpenDiary: () => void }) {
   const [job, setJob] = useState({ title: "", details: "", phone: "", dueAt: "", callNow: false });
   const [thread, setThread] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
   const [draft, setDraft] = useState("");
@@ -744,6 +821,9 @@ function Grok({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void> 
       <section className={styles.panel} style={{ marginBottom: 16 }}>
         <span className={styles.label}>Speak to Grok</span>
         <p className={styles.quiet}>This session knows it is talking to you, not to a caller.</p>
+        <div className={styles.actions}>
+          <button className={styles.tiny} type="button" onClick={onOpenDiary}>Open diary</button>
+        </div>
         <SpeakToGrok
           sessionUrl="/api/client/voice-session"
           toolUrl="/api/client/voice-tool"

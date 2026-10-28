@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { bookings, calls, clientUsers, clients, contacts, humeAgents, leads, phoneNumbers, tasks } from "@/db/schema";
 import { APP_TIMEZONE } from "@/lib/constants";
 import { workBriefForClient } from "@/lib/desk-context";
-import { placeOutboundCall } from "@/lib/place-call";
+import { dialTask } from "@/lib/due-calls";
 import { normalizePhone } from "@/lib/grok-call";
 
 const VOICES = ["eve", "ara", "rex", "sal"] as const;
@@ -132,6 +132,9 @@ export async function loadClientDesk(clientId: string, userId: string) {
       status: row.status || "pending",
       when: whenLabel(row.dueAt || row.createdAt),
       dueAt: iso(row.dueAt),
+      phone: row.callPhone || "",
+      placeCall: Boolean(row.placeCall),
+      callError: row.callError || "",
       open: row.status !== "done",
     })),
     upcomingCount: bookingRows.filter((row) => row.status === "confirmed" && row.startDateTime.getTime() >= now).length,
@@ -178,7 +181,7 @@ export async function saveClientBrief(clientId: string, input: { instructions: s
 
 export async function addClientJob(
   clientId: string,
-  input: { title: string; details: string; phone?: string; dueAt?: string | null; callNow?: boolean },
+  input: { title: string; details: string; phone?: string; dueAt?: string | null; callNow?: boolean; placeCall?: boolean },
 ) {
   const title = input.title.trim().slice(0, 160);
   if (!title) throw new Error("Tell Grok what the job is.");
@@ -186,9 +189,10 @@ export async function addClientJob(
   const details = [input.details.trim().slice(0, 2000), phone ? `Phone: ${phone}` : ""].filter(Boolean).join("\n");
   let dueAt: Date | null = null;
   if (input.dueAt) {
-    const due = DateTime.fromISO(input.dueAt, { zone: APP_TIMEZONE });
+    const due = DateTime.fromISO(input.dueAt.replace(" ", "T"), { zone: APP_TIMEZONE });
     if (due.isValid) dueAt = due.toJSDate();
   }
+  const schedule = Boolean(input.placeCall && phone && dueAt && !input.callNow);
 
   const [job] = await db
     .insert(tasks)
@@ -199,24 +203,17 @@ export async function addClientJob(
       assignedTo: "Grok",
       status: "pending",
       dueAt,
+      callPhone: phone || null,
+      placeCall: schedule,
     })
     .returning({ id: tasks.id });
 
   let call: { ok: boolean; error?: string; callSid?: string } | null = null;
   if (input.callNow && phone) {
-    const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
-    const [number] = await db.select().from(phoneNumbers).where(eq(phoneNumbers.clientId, clientId)).limit(1);
-    call = await placeOutboundCall({
-      to: phone,
-      from: number?.number || process.env.TWILIO_PHONE_NUMBER || "",
-      greeting: input.details.trim() || `Hello, this is ${client?.name || "the office"}.`,
-    });
-    if (call.ok) {
-      await db.update(tasks).set({ status: "in_progress", updatedAt: new Date() }).where(eq(tasks.id, job.id));
-    }
+    call = await dialTask(job.id);
   }
 
-  return { id: job.id, call };
+  return { id: job.id, call, scheduled: schedule };
 }
 
 export async function setClientJobStatus(clientId: string, jobId: string, status: "pending" | "done") {
@@ -244,12 +241,8 @@ export async function addClientBooking(
 ) {
   const start = parseBookingStart(input);
   if (!start.isValid) throw new Error("Not saved. Give a day and a time, for example 2026-10-28 14:00.");
-  if (start.hour < 8 || start.hour > 16 || (start.hour === 16 && start.minute > 30)) {
-    throw new Error("Not saved. Appointments must start between 08:00 and 16:30 Johannesburg time.");
-  }
   const minutes = [15, 30, 60].includes(Number(input.minutes)) ? Number(input.minutes) : 30;
   const end = start.plus({ minutes });
-  if (end.hour > 17 || (end.hour === 17 && end.minute > 0)) throw new Error("Not saved. That meeting runs past 17:00.");
 
   const clash = await db
     .select({ id: bookings.id })

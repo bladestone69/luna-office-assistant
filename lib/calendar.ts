@@ -61,8 +61,8 @@ export async function getAvailableSlotsForDate(input: {
   date: string;
   durationMinutes: number;
 }) {
-  const dayStart = DateTime.fromISO(`${input.date}T08:00:00`, { zone: APP_TIMEZONE });
-  const dayEnd = DateTime.fromISO(`${input.date}T17:00:00`, { zone: APP_TIMEZONE });
+  const dayStart = DateTime.fromISO(`${input.date}T00:00:00`, { zone: APP_TIMEZONE });
+  const dayEnd = dayStart.plus({ days: 1 });
 
   if (!dayStart.isValid || !dayEnd.isValid) {
     throw new Error("Invalid date input");
@@ -98,7 +98,7 @@ export async function getAvailableSlotsForDate(input: {
     }
   }
 
-  return slots.slice(0, 24);
+  return slots;
 }
 
 export async function createPrivacySafeEvent(input: {

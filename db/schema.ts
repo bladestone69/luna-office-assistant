@@ -162,8 +162,21 @@ export const tasks = pgTable("tasks", {
   description: text("description"),
   dueAt: timestamp("due_at"),
   status: taskStatusEnum("status").default("pending"),
+  callPhone: text("call_phone"),
+  placeCall: boolean("place_call").default(false).notNull(),
+  callError: text("call_error"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const callOrders = pgTable("call_orders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+  phone: text("phone").notNull(),
+  instruction: text("instruction").notNull(),
+  armedAt: timestamp("armed_at").defaultNow().notNull(),
+  usedAt: timestamp("used_at"),
 });
 
 // ─── Admin Credentials (persistent password) ─────────────────────────────────────

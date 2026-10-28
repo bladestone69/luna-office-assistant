@@ -33,13 +33,29 @@ const TOOLS = [
       properties: {
         name: { type: "string", description: "Who the appointment is for" },
         date: { type: "string", description: "Day in Africa/Johannesburg, YYYY-MM-DD" },
-        time: { type: "string", description: "Start time, 24-hour HH:mm, from 08:00 to 16:30" },
+        time: { type: "string", description: "Start time, 24-hour HH:mm, any time of day or night" },
         minutes: { type: "number", description: "15, 30, or 60" },
         phone: { type: "string" },
         meeting_type: { type: "string" },
         notes: { type: "string" },
       },
       required: ["name", "date", "time"],
+    },
+  },
+  {
+    type: "function",
+    name: "schedule_call",
+    description: "Tell Grok to phone someone at a set time and follow an instruction. This saves the job. Grok places the call when that time arrives.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Who to call" },
+        phone: { type: "string", description: "Their number" },
+        date: { type: "string", description: "YYYY-MM-DD in Johannesburg" },
+        time: { type: "string", description: "HH:mm, 24 hour, any time of day" },
+        instruction: { type: "string", description: "What Grok must say or ask on the call" },
+      },
+      required: ["name", "phone", "date", "time", "instruction"],
     },
   },
 ];
@@ -154,7 +170,7 @@ export default function SpeakToGrok({ sessionUrl, toolUrl, label = "Speak to Gro
       const call = readToolCall(message, names);
       if (!call || seen.has(call.callId)) return;
       seen.add(call.callId);
-      setStatus(call.name === "book_appointment" ? "Saving the appointment" : "Saving");
+      setStatus(call.name === "book_appointment" ? "Saving the appointment" : call.name === "schedule_call" ? "Saving the call" : "Saving");
       const toolResponse = await fetch(toolUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

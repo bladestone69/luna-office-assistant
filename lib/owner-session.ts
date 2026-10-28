@@ -40,7 +40,8 @@ export async function mintOwnerSession(clientId: string, ownerName: string) {
     `Now in Johannesburg: ${nowLabel}.`,
     "Diary rule: talking does not save an appointment. The diary changes only when you call book_appointment and the result says saved true.",
     "Once the owner confirms who it is for and the day and time, call book_appointment immediately. Do not ask them to confirm again.",
-    "Pass date as YYYY-MM-DD and time as HH:mm, 24 hour, Africa/Johannesburg. Appointments start between 08:00 and 16:30.",
+    "Pass date as YYYY-MM-DD and time as HH:mm, 24 hour, Africa/Johannesburg. Any time of day or night is allowed.",
+    "If the owner wants a person called at a time, call schedule_call with the phone number, the day, the time, and the instruction. That is what makes Grok dial.",
     "If the tool result says saved false, tell the owner the exact reason and do not say it was saved.",
     "Only say the appointment is on the diary when saved is true.",
   ].join("\n");
@@ -95,6 +96,27 @@ export async function runOwnerTool(clientId: string, name: string, args: Record<
       saved: true,
       bookingId: id,
       message: "SAVED. The appointment is on the diary. Tell the owner it is saved.",
+    };
+  }
+  if (name === "schedule_call") {
+    const who = String(args.name || "them");
+    const phone = String(args.phone || "");
+    const date = String(args.date || "");
+    const time = String(args.time || "");
+    const instruction = String(args.instruction || args.details || "");
+    const dueAt = date && time ? `${date}T${time}` : String(args.due_at || "");
+    const result = await addClientJob(clientId, {
+      title: `Call ${who}`,
+      details: instruction,
+      phone,
+      dueAt,
+      placeCall: true,
+    });
+    return {
+      ok: true,
+      saved: true,
+      jobId: result.id,
+      message: "SAVED. Grok will call that number at that time and follow the instruction.",
     };
   }
   return { ok: false, error: "Unknown tool" };

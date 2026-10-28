@@ -970,7 +970,7 @@ const STARTER_PROMPTS: { audience: PromptAudience; name: string; body: string }[
   {
     audience: "call",
     name: "Appointments",
-    body: "This is a phone call. The speaker is a client, not the owner. Your job is the diary. Confirm the caller name, phone, and a time between 08:00 and 17:00 Johannesburg. Use book_appointment only after they agree.",
+    body: "This is a phone call. The speaker is a client, not the owner. Your job is the diary. Confirm the caller name, phone, and the time they want. Any time of day is allowed. Use book_appointment only after they agree.",
   },
   {
     audience: "call",

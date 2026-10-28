@@ -7,6 +7,7 @@ import { DateTime } from "luxon";
 import { APP_TIMEZONE } from "@/lib/constants";
 import { workBriefForClient } from "@/lib/desk-context";
 import { defaultPromptBody } from "@/lib/grok-setup";
+import { takeCallOrder } from "@/lib/call-orders";
 
 export type GrokCallConfig = {
   clientId: string | null;
@@ -45,7 +46,7 @@ const TOOLS = [
         phone: { type: "string" },
         email: { type: "string" },
         meeting_type: { type: "string" },
-        start_iso: { type: "string", description: "ISO 8601 start time" },
+        start_iso: { type: "string", description: "Local Johannesburg time, any hour, for example 2026-10-28T21:30" },
         duration_minutes: { type: "number" },
         notes: { type: "string" },
       },
@@ -80,6 +81,15 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
     }
   }
 
+  if (!clientId && to) {
+    const [linked] = await db.select().from(grokNumbers).where(eq(grokNumbers.phoneNumber, to)).limit(1);
+    if (linked?.clientId) {
+      clientId = linked.clientId;
+      const [client] = await db.select().from(clients).where(eq(clients.id, linked.clientId)).limit(1);
+      if (client?.name) businessName = client.name;
+    }
+  }
+
   if (!instructions) {
     const extra = clientId
       ? (await db.select().from(humeAgents).where(eq(humeAgents.clientId, clientId)).limit(1))[0]
@@ -105,6 +115,25 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
     ? `Start the call by saying: ${greeting.trim()}\n`
     : "";
   const work = clientId ? await workBriefForClient(clientId) : "";
+  if (clientId) {
+    const order = await takeCallOrder(clientId);
+    if (order) {
+      return {
+        clientId,
+        businessName,
+        voice,
+        from,
+        to,
+        instructions: [
+          `This is an outbound phone call for ${businessName}, not an incoming caller.`,
+          `You are calling ${order.phone}. The person who answers is not the owner.`,
+          `Follow this instruction: ${order.instruction}`,
+          "Do that task, be polite and direct, then finish the call.",
+          "Times are Africa/Johannesburg. There is no office-hour cutoff.",
+        ].join("\n"),
+      };
+    }
+  }
   const callerFrame =
     `This is a phone call. The person speaking is a client or caller of ${businessName}, not the owner. ` +
     `Do not treat them as the owner.\n`;
@@ -115,7 +144,7 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
     voice,
     from,
     to,
-    instructions: `${callerFrame}${opening}${base}\nCaller number: ${from || "unknown"}. Business: ${businessName}. Times are Africa/Johannesburg.\n${work}`,
+    instructions: `${callerFrame}${opening}${base}\nCaller number: ${from || "unknown"}. Business: ${businessName}. Times are Africa/Johannesburg. There is no office-hour cutoff. Book any time, including late at night.\n${work}`,
   };
 }
 
@@ -271,10 +300,14 @@ export function grokSipTwiml(phoneNumber: string) {
 }
 
 export function normalizePhone(value: string) {
-  const match = String(value || "").match(/\+\d{8,15}/);
-  if (match) return match[0];
-  const digits = String(value || "").replace(/[^\d]/g, "");
-  return digits ? `+${digits}` : "";
+  const raw = String(value || "").trim();
+  const plus = raw.match(/\+\d{8,15}/);
+  if (plus) return plus[0];
+  const digits = raw.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("27") && digits.length >= 11) return `+${digits}`;
+  if (digits.startsWith("0") && digits.length >= 10) return `+27${digits.slice(1)}`;
+  return `+${digits}`;
 }
 
 function escapeXml(value: string) {

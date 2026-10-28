@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readClientSession } from "@/lib/client-access";
 import { addClientJob, setClientJobStatus } from "@/lib/client-desk";
+import { dialClientJob } from "@/lib/due-calls";
 
 export async function POST(request: NextRequest) {
   const session = readClientSession(request);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null);
+  if (body?.action === "call-now") {
+    const result = await dialClientJob(session.clientId, String(body?.id || ""));
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+    return NextResponse.json({ ok: true, call: result });
+  }
 
   try {
     const result = await addClientJob(session.clientId, {
@@ -14,6 +20,7 @@ export async function POST(request: NextRequest) {
       phone: typeof body?.phone === "string" ? body.phone : "",
       dueAt: typeof body?.dueAt === "string" ? body.dueAt : null,
       callNow: body?.callNow === true,
+      placeCall: body?.placeCall === true,
     });
     return NextResponse.json({ ok: true, id: result.id, call: result.call });
   } catch (error) {
