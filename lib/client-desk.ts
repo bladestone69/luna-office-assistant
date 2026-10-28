@@ -87,7 +87,7 @@ export async function loadClientDesk(clientId: string, userId: string) {
       instructions: agent?.grokInstructions || agent?.systemPrompt || "",
       provider: agent?.voiceProvider === "hume" ? "hume" : "grok",
       grokReady: Boolean(process.env.XAI_API_KEY),
-      phoneReady: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && (line || process.env.TWILIO_PHONE_NUMBER)),
+      phoneReady: Boolean(line),
     },
     bookings: bookingRows.map((row) => ({
       id: row.id,

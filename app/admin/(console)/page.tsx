@@ -79,8 +79,9 @@ const DEFAULT_APP_SETTINGS: DefaultSettings = {
 };
 
 const INTEGRATIONS = [
-  { name: "Grok Voice", desc: "Primary answering brain for inbound and outbound calls", icon: "GX" },
-  { name: "Hume AI", desc: "Backup only, used when a client is set to Hume or the Grok key is missing", icon: "HM" },
+  { name: "Grok Voice", desc: "The only answering and speaking brain", icon: "GX" },
+  { name: "Hume AI", desc: "Backed up. Not used on any call", icon: "HM" },
+  { name: "Twilio", desc: "Backed up. Not used to dial or answer", icon: "TW" },
   { name: "Aura Calendar", desc: "Appointments stay in Aura. Google Calendar is not used", icon: "AC" },
   { name: "Trello", desc: "Optional cards for new leads", icon: "TR" },
 ];
