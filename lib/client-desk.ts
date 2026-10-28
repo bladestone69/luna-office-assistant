@@ -230,14 +230,26 @@ export async function setClientJobStatus(clientId: string, jobId: string, status
 
 export async function addClientBooking(
   clientId: string,
-  input: { name: string; phone: string; email?: string; meetingType: string; start: string; notes?: string; minutes?: number },
+  input: {
+    name: string;
+    phone: string;
+    email?: string;
+    meetingType: string;
+    start: string;
+    date?: string;
+    time?: string;
+    notes?: string;
+    minutes?: number;
+  },
 ) {
-  const start = DateTime.fromISO(input.start, { zone: APP_TIMEZONE });
-  if (!start.isValid) throw new Error("Choose a valid time.");
-  if (start.hour < 8 || start.hour >= 17) throw new Error("Bookings stay inside 08:00 to 17:00.");
+  const start = parseBookingStart(input);
+  if (!start.isValid) throw new Error("Not saved. Give a day and a time, for example 2026-10-28 14:00.");
+  if (start.hour < 8 || start.hour > 16 || (start.hour === 16 && start.minute > 30)) {
+    throw new Error("Not saved. Appointments must start between 08:00 and 16:30 Johannesburg time.");
+  }
   const minutes = [15, 30, 60].includes(Number(input.minutes)) ? Number(input.minutes) : 30;
   const end = start.plus({ minutes });
-  if (end.hour > 17 || (end.hour === 17 && end.minute > 0)) throw new Error("That meeting runs past 17:00.");
+  if (end.hour > 17 || (end.hour === 17 && end.minute > 0)) throw new Error("Not saved. That meeting runs past 17:00.");
 
   const clash = await db
     .select({ id: bookings.id })
@@ -251,7 +263,7 @@ export async function addClientBooking(
       ),
     )
     .limit(1);
-  if (clash[0]) throw new Error("That time is already booked.");
+  if (clash[0]) throw new Error("Not saved. That time is already booked.");
 
   const name = input.name.trim().slice(0, 120) || "Appointment";
   const [row] = await db
@@ -271,6 +283,82 @@ export async function addClientBooking(
     })
     .returning({ id: bookings.id });
   return row.id;
+}
+
+function parseBookingStart(input: { start?: string; date?: string; time?: string }) {
+  const now = DateTime.now().setZone(APP_TIMEZONE);
+  const dateText = (input.date || "").trim();
+  const timeText = (input.time || "").trim();
+  let raw = (input.start || "").trim();
+
+  if (!raw && (dateText || timeText)) {
+    raw = `${resolveDay(dateText, now)}T${clock(timeText || "09:00")}`;
+  }
+
+  const relative = raw.match(/^(today|tomorrow)(?:[ T,]+(.+))?$/i);
+  if (relative) {
+    const day = now.plus({ days: relative[1].toLowerCase() === "tomorrow" ? 1 : 0 }).toISODate();
+    raw = `${day}T${clock(relative[2] || timeText || "09:00")}`;
+  }
+
+  const weekday = raw.match(/^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:[ T,]+(.+))?$/i);
+  if (weekday) {
+    const index = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].indexOf(weekday[1].toLowerCase());
+    const day = upcomingWeekday(now, index);
+    raw = `${day.toISODate()}T${clock(weekday[2] || timeText || "09:00")}`;
+  }
+
+  raw = raw.replace(/^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}(?::\d{2}){0,2}\s*(?:am|pm)?)/i, (_, day, time) => `${day}T${clock(time)}`);
+
+  let parsed = DateTime.fromISO(raw, { zone: APP_TIMEZONE });
+  if (!parsed.isValid) {
+    const formats = ["yyyy-MM-dd HH:mm", "yyyy-MM-dd h:mm a", "d MMMM yyyy HH:mm", "d MMM yyyy HH:mm", "d MMMM yyyy h:mm a"];
+    for (const format of formats) {
+      const attempt = DateTime.fromFormat(raw.replace("T", " "), format, { zone: APP_TIMEZONE });
+      if (attempt.isValid) {
+        parsed = attempt;
+        break;
+      }
+    }
+  }
+  if (!parsed.isValid && (dateText || timeText)) {
+    parsed = DateTime.fromISO(`${resolveDay(dateText, now)}T${clock(timeText || raw)}`, { zone: APP_TIMEZONE });
+  }
+  if (!parsed.isValid && /^(\d{1,2})(?::\d{2}){0,2}\s*(am|pm)?$/i.test(raw)) {
+    parsed = DateTime.fromISO(`${now.toISODate()}T${clock(raw)}`, { zone: APP_TIMEZONE });
+  }
+  return parsed;
+}
+
+function upcomingWeekday(now: DateTime, index: number) {
+  const weekday = (index + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  let day = now.set({ weekday });
+  if (day.startOf("day") < now.startOf("day")) day = day.plus({ weeks: 1 });
+  return day;
+}
+
+function resolveDay(date: string, now: DateTime) {
+  const lower = date.toLowerCase();
+  if (!date || lower === "today") return now.toISODate();
+  if (lower === "tomorrow") return now.plus({ days: 1 }).toISODate();
+  if (/^\d{4}-\d{2}-\d{2}/.test(date)) return date.slice(0, 10);
+  const weekday = lower.match(/^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/);
+  if (weekday) {
+    const index = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].indexOf(weekday[1]);
+    return upcomingWeekday(now, index).toISODate();
+  }
+  return date;
+}
+
+function clock(value: string) {
+  const match = value.trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*(am|pm)?$/);
+  if (!match) return "09:00";
+  let hour = Number(match[1]);
+  const minute = match[2] || "00";
+  if (match[3] === "pm" && hour < 12) hour += 12;
+  if (match[3] === "am" && hour === 12) hour = 0;
+  if (hour > 23) return "09:00";
+  return `${String(hour).padStart(2, "0")}:${minute}`;
 }
 
 export async function cancelClientBooking(clientId: string, bookingId: string) {

@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
   try {
     return NextResponse.json(await runOwnerTool(session.clientId, name, args));
   } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Tool failed" });
+    const message = error instanceof Error ? error.message : "Not saved.";
+    return NextResponse.json({ ok: false, saved: false, message, error: message });
   }
 }

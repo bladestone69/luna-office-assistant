@@ -744,7 +744,14 @@ function Grok({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void> 
       <section className={styles.panel} style={{ marginBottom: 16 }}>
         <span className={styles.label}>Speak to Grok</span>
         <p className={styles.quiet}>This session knows it is talking to you, not to a caller.</p>
-        <SpeakToGrok sessionUrl="/api/client/voice-session" toolUrl="/api/client/voice-tool" />
+        <SpeakToGrok
+          sessionUrl="/api/client/voice-session"
+          toolUrl="/api/client/voice-tool"
+          onResult={(result) => {
+            setNote(result.message);
+            if (result.ok) void onChanged();
+          }}
+        />
       </section>
       <section className={styles.grid}>
         <ClientPromptSetup />

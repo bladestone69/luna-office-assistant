@@ -6,6 +6,7 @@ type SpeakProps = {
   sessionUrl: string;
   toolUrl: string;
   label?: string;
+  onResult?: (result: { ok: boolean; message: string }) => void;
 };
 
 const TOOLS = [
@@ -26,33 +27,36 @@ const TOOLS = [
   {
     type: "function",
     name: "book_appointment",
-    description: "Book a time on the business diary. Time is Africa/Johannesburg.",
+    description: "Write the appointment onto the diary. Saying it out loud does not save it. Call this as soon as the owner confirms the person, day, and time. Tell the owner it is saved only when the result says saved true.",
     parameters: {
       type: "object",
       properties: {
-        name: { type: "string" },
+        name: { type: "string", description: "Who the appointment is for" },
+        date: { type: "string", description: "Day in Africa/Johannesburg, YYYY-MM-DD" },
+        time: { type: "string", description: "Start time, 24-hour HH:mm, from 08:00 to 16:30" },
+        minutes: { type: "number", description: "15, 30, or 60" },
         phone: { type: "string" },
         meeting_type: { type: "string" },
-        start: { type: "string" },
-        minutes: { type: "number" },
         notes: { type: "string" },
       },
-      required: ["name", "start"],
+      required: ["name", "date", "time"],
     },
   },
 ];
 
-export default function SpeakToGrok({ sessionUrl, toolUrl, label = "Speak to Grok" }: SpeakProps) {
+export default function SpeakToGrok({ sessionUrl, toolUrl, label = "Speak to Grok", onResult }: SpeakProps) {
   const [live, setLive] = useState(false);
   const [status, setStatus] = useState("This session is with the owner, not a caller.");
   const [caption, setCaption] = useState("");
   const socketRef = useRef<WebSocket | null>(null);
   const stopRef = useRef<(() => void) | null>(null);
+  const holdRef = useRef(false);
 
   useEffect(() => () => stopRef.current?.(), []);
 
   async function start() {
     const audio = new AudioContext();
+    holdRef.current = false;
     setStatus("Connecting");
     setCaption("");
     try {
@@ -68,6 +72,7 @@ export default function SpeakToGrok({ sessionUrl, toolUrl, label = "Speak to Gro
       const ws = new WebSocket("wss://api.x.ai/v1/realtime?model=grok-voice-latest", [`xai-client-secret.${data.token}`]);
       socketRef.current = ws;
       const seen = new Set<string>();
+      const names = new Map<string, string>();
       let started = false;
       let nextTime = 0;
 
@@ -97,7 +102,7 @@ export default function SpeakToGrok({ sessionUrl, toolUrl, label = "Speak to Gro
         }, (delta) => {
           nextTime = playPcm(audio, delta, nextTime);
           setStatus("Grok is speaking with the owner");
-        }, seen);
+        }, seen, names);
       };
     } catch (error) {
       await audio.close().catch(() => undefined);
@@ -112,6 +117,7 @@ export default function SpeakToGrok({ sessionUrl, toolUrl, label = "Speak to Gro
       onReady: () => void,
       onAudio: (delta: string) => void,
       seen: Set<string>,
+      names: Map<string, string>,
     ) {
       let message: any;
       try {
@@ -142,16 +148,25 @@ export default function SpeakToGrok({ sessionUrl, toolUrl, label = "Speak to Gro
       if (message.type === "response.output_audio_transcript.delta" && message.delta) {
         setCaption((current) => `${current} ${message.delta}`.trim().slice(-280));
       }
-      if (message.type === "response.done") setStatus("Listening. Grok knows this is the owner.");
-      const call = readToolCall(message);
+      if (message.type === "response.done" && !holdRef.current && !functionItems(message).length) {
+        setStatus("Listening. Grok knows this is the owner.");
+      }
+      const call = readToolCall(message, names);
       if (!call || seen.has(call.callId)) return;
       seen.add(call.callId);
+      setStatus(call.name === "book_appointment" ? "Saving the appointment" : "Saving");
       const toolResponse = await fetch(toolUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: call.name, args: call.args }),
       });
-      const output = await toolResponse.json().catch(() => ({ ok: false }));
+      const output = await toolResponse.json().catch(() => ({ ok: false, saved: false, message: "Not saved." }));
+      const saved = output.saved === true || output.ok === true;
+      const text = String(output.message || output.error || (saved ? "Saved." : "Not saved."));
+      holdRef.current = true;
+      setStatus(text);
+      onResult?.({ ok: saved, message: text });
+      if (socket.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({
         type: "conversation.item.create",
         item: { type: "function_call_output", call_id: call.callId, output: JSON.stringify(output) },
@@ -256,23 +271,43 @@ function playPcm(audio: AudioContext, b64: string, nextTime: number) {
   return start + buffer.duration;
 }
 
-function readToolCall(message: any): { callId: string; name: string; args: any } | null {
-  if (message?.type === "response.function_call_arguments.done" && message.name && message.call_id) {
-    return { callId: message.call_id, name: message.name, args: parseArgs(message.arguments) };
+function readToolCall(message: any, names: Map<string, string>): { callId: string; name: string; args: Record<string, unknown> } | null {
+  if (message?.type === "response.function_call_arguments.done") {
+    const callId = String(message.call_id || message.item_id || "");
+    const name = String(message.name || names.get(callId) || "");
+    const args = parseArgs(message.arguments);
+    if (!callId || !name || !args) return null;
+    names.set(callId, name);
+    return { callId, name, args };
   }
-  const item = message?.item;
-  if (message?.type === "response.output_item.done" && item?.type === "function_call" && item.name) {
-    return { callId: item.call_id, name: item.name, args: parseArgs(item.arguments) };
+
+  for (const item of functionItems(message)) {
+    const callId = String(item.call_id || item.id || "");
+    const name = String(item.name || item.function?.name || (callId ? names.get(callId) : "") || "");
+    if (callId && name) names.set(callId, name);
+    const raw = item.arguments;
+    if (typeof raw === "string" && (!raw.trim() || raw.trim() === "{}")) continue;
+    const args = parseArgs(raw);
+    if (!callId || !name || !args || !Object.keys(args).length) continue;
+    return { callId, name, args };
   }
   return null;
 }
 
-function parseArgs(value: unknown) {
-  if (!value) return {};
-  if (typeof value === "object") return value;
+function functionItems(message: any) {
+  const items: any[] = [];
+  if (message?.item) items.push(message.item);
+  if (Array.isArray(message?.response?.output)) items.push(...message.response.output);
+  return items.filter((item) => item && (item.type === "function_call" || item.type === "function"));
+}
+
+function parseArgs(value: unknown): Record<string, unknown> | null {
+  if (!value) return null;
+  if (typeof value === "object") return value as Record<string, unknown>;
   try {
-    return JSON.parse(String(value));
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
-    return {};
+    return null;
   }
 }

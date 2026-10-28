@@ -20,6 +20,16 @@ export async function mintOwnerSession(clientId: string, ownerName: string) {
   const prompt = (await defaultPromptBody(clientId, "session")) ||
     "Help the owner run the business. Talk about the diary, callbacks, and what the phone agent should say to clients.";
   const work = await workBriefForClient(clientId);
+  const nowLabel = new Intl.DateTimeFormat("en-ZA", {
+    timeZone: "Africa/Johannesburg",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date());
   const instructions = [
     "This is a private web voice session, not a phone call.",
     `You are speaking with the owner, ${ownerName}, of ${client.name}.`,
@@ -27,6 +37,12 @@ export async function mintOwnerSession(clientId: string, ownerName: string) {
     prompt,
     `Opening: greet ${ownerName} by name and wait for what they need.`,
     work,
+    `Now in Johannesburg: ${nowLabel}.`,
+    "Diary rule: talking does not save an appointment. The diary changes only when you call book_appointment and the result says saved true.",
+    "Once the owner confirms who it is for and the day and time, call book_appointment immediately. Do not ask them to confirm again.",
+    "Pass date as YYYY-MM-DD and time as HH:mm, 24 hour, Africa/Johannesburg. Appointments start between 08:00 and 16:30.",
+    "If the tool result says saved false, tell the owner the exact reason and do not say it was saved.",
+    "Only say the appointment is on the diary when saved is true.",
   ].join("\n");
 
   const response = await fetch("https://api.x.ai/v1/realtime/client_secrets", {
@@ -64,15 +80,22 @@ export async function runOwnerTool(clientId: string, name: string, args: Record<
   }
   if (name === "book_appointment") {
     const id = await addClientBooking(clientId, {
-      name: String(args.name || ""),
+      name: String(args.name || args.person || ""),
       phone: String(args.phone || ""),
       email: String(args.email || ""),
-      meetingType: String(args.meeting_type || "Appointment"),
-      start: String(args.start || ""),
+      meetingType: String(args.meeting_type || args.meetingType || args.service || "Appointment"),
+      start: String(args.start || args.start_iso || args.datetime || ""),
+      date: String(args.date || args.day || ""),
+      time: String(args.time || ""),
       notes: String(args.notes || ""),
-      minutes: Number(args.minutes),
+      minutes: Number(args.minutes || args.duration_minutes || args.duration),
     });
-    return { ok: true, bookingId: id };
+    return {
+      ok: true,
+      saved: true,
+      bookingId: id,
+      message: "SAVED. The appointment is on the diary. Tell the owner it is saved.",
+    };
   }
   return { ok: false, error: "Unknown tool" };
 }
