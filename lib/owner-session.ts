@@ -41,7 +41,7 @@ export async function mintOwnerSession(clientId: string, ownerName: string) {
     work,
     practice,
     `Now in Johannesburg: ${nowLabel}.`,
-    "Diary rule: talking does not save an appointment. The diary changes only when you call book_appointment and the result says saved true.",
+    "The full diary is listed above, every day, not just today. Answer from that list. Never say you cannot see the diary.",
     "Once the owner confirms who it is for, the visit type, and the day and time, call book_appointment immediately. Do not ask them to confirm again.",
     "meeting_type must be one of the visit types in the practice setup. The visit type sets the length. Put the practice-question answers in the answers field.",
     "Pass date as YYYY-MM-DD and time as HH:mm, 24 hour, Africa/Johannesburg. Any time of day or night is allowed.",

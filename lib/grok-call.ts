@@ -2,14 +2,11 @@ import WebSocket from "ws";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, grokNumbers, humeAgents, leads, phoneNumbers } from "@/db/schema";
-import { createPrivacySafeEvent, isSlotAvailable } from "@/lib/calendar";
-import { DateTime } from "luxon";
-import { APP_TIMEZONE } from "@/lib/constants";
+import { addClientBooking } from "@/lib/client-desk";
 import { workBriefForClient } from "@/lib/desk-context";
 import { defaultPromptBody } from "@/lib/grok-setup";
 import { takeCallOrder } from "@/lib/call-orders";
-import { getPractice, practiceBriefFor } from "@/lib/practice";
-import { matchVisit } from "@/lib/practice-presets";
+import { practiceBriefFor } from "@/lib/practice";
 
 export type GrokCallConfig = {
   clientId: string | null;
@@ -48,7 +45,9 @@ const TOOLS = [
         phone: { type: "string" },
         email: { type: "string" },
         meeting_type: { type: "string", description: "Exact visit type name from the practice setup" },
-        start_iso: { type: "string", description: "Local Johannesburg time, any hour, for example 2026-10-28T21:30" },
+        start_iso: { type: "string", description: "Johannesburg local time, for example 2026-10-30T14:00. Tomorrow is allowed." },
+        date: { type: "string", description: "YYYY-MM-DD in Johannesburg if you are not using start_iso" },
+        time: { type: "string", description: "HH:mm, 24 hour" },
         duration_minutes: { type: "number", description: "Ignored when meeting_type matches a visit type. The visit type sets the length." },
         notes: { type: "string" },
         answers: { type: "string", description: "One line per practice question, written as Question: answer" },
@@ -117,7 +116,7 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
   const opening = greeting.trim()
     ? `Start the call by saying: ${greeting.trim()}\n`
     : "";
-  const work = clientId ? await workBriefForClient(clientId) : "";
+  const work = clientId ? await workBriefForClient(clientId, "caller") : "";
   const practice = clientId ? await practiceBriefFor(clientId) : "";
   if (clientId) {
     const order = await takeCallOrder(clientId);
@@ -274,34 +273,25 @@ async function runTool(name: string, args: any, config: GrokCallConfig) {
   }
 
   if (name === "book_appointment") {
-    const start = DateTime.fromISO(String(args.start_iso || ""), { zone: APP_TIMEZONE });
-    if (!start.isValid) return { ok: false, error: "Invalid start time" };
-    const practice = config.clientId ? await getPractice(config.clientId) : null;
-    const requestedName = String(args.meeting_type || "Appointment");
-    const visit = practice ? matchVisit(practice, requestedName) : null;
-    const requested = Math.round(Number(args.duration_minutes));
-    const minutes = visit
-      ? visit.minutes
-      : Number.isFinite(requested) && requested >= 5 && requested <= 480
-        ? requested
-        : 30;
-    const meetingType = visit?.name || requestedName;
-    const end = start.plus({ minutes });
-    const free = await isSlotAvailable(start.toISO()!, end.toISO()!, config.clientId);
-    if (!free) return { ok: false, error: "That time is already booked" };
-    const id = await createPrivacySafeEvent({
-      name: String(args.name || "Caller"),
-      phone: String(args.phone || config.from || ""),
-      email: String(args.email || ""),
-      meetingTypeLabel: meetingType,
-      startIso: start.toISO()!,
-      endIso: end.toISO()!,
-      clientId: config.clientId,
-      notes: String(args.notes || ""),
-      answers: String(args.answers || ""),
-      consent: true,
-    });
-    return { ok: true, saved: true, bookingId: id, meetingType, minutes, start: start.toISO(), end: end.toISO() };
+    if (!config.clientId) return { ok: false, error: "This phone line is not assigned to a client" };
+    try {
+      const id = await addClientBooking(config.clientId, {
+        name: String(args.name || "Caller"),
+        phone: String(args.phone || config.from || ""),
+        email: String(args.email || ""),
+        meetingType: String(args.meeting_type || "Appointment"),
+        start: String(args.start_iso || args.start || ""),
+        date: String(args.date || ""),
+        time: String(args.time || ""),
+        notes: String(args.notes || ""),
+        answers: String(args.answers || ""),
+        minutes: Number(args.duration_minutes || args.minutes),
+      });
+      return { ok: true, saved: true, bookingId: id, message: "SAVED. The appointment is on the diary." };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Not saved.";
+      return { ok: false, saved: false, error: message };
+    }
   }
 
   return { ok: false, error: `Unknown tool ${name}` };
