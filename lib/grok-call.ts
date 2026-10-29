@@ -2,7 +2,7 @@ import WebSocket from "ws";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, grokNumbers, humeAgents, leads, phoneNumbers } from "@/db/schema";
-import { addClientBooking } from "@/lib/client-desk";
+import { addClientBooking, changeClientDiary } from "@/lib/client-desk";
 import { workBriefForClient } from "@/lib/desk-context";
 import { defaultPromptBody } from "@/lib/grok-setup";
 import { takeCallOrder } from "@/lib/call-orders";
@@ -53,6 +53,26 @@ const TOOLS = [
         answers: { type: "string", description: "One line per practice question, written as Question: answer" },
       },
       required: ["name", "phone", "start_iso"],
+    },
+  },
+  {
+    type: "function",
+    name: "change_diary",
+    description: "Move, correct, or cancel an appointment already on the diary. Use this when the caller says the time or the number is wrong, or they want to cancel. Never say you cannot change or cancel.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["change", "cancel"] },
+        name: { type: "string" },
+        phone: { type: "string", description: "The number currently on the booking" },
+        date: { type: "string" },
+        time: { type: "string" },
+        new_phone: { type: "string" },
+        new_name: { type: "string" },
+        new_date: { type: "string" },
+        new_time: { type: "string" },
+      },
+      required: ["action", "name"],
     },
   },
 ];
@@ -111,7 +131,7 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
   const base = instructions.trim() ||
     `You answer the phone for ${businessName} in South Africa. ` +
     `Take a message with take_message, or book a time with book_appointment. ` +
-    `Never invent an open slot.`;
+    `Never invent an open slot. If they want to move or cancel, call change_diary. Never say you cannot change or cancel.\n`;
 
   const opening = greeting.trim()
     ? `Start the call by saying: ${greeting.trim()}\n`
@@ -147,7 +167,7 @@ export async function loadGrokConfigForNumber(toRaw: string, fromRaw: string): P
     voice,
     from,
     to,
-    instructions: `${callerFrame}${opening}${base}\nCaller number: ${from || "unknown"}. Business: ${businessName}. Times are Africa/Johannesburg. There is no office-hour cutoff. Book any time, including late at night.\n${practice}\n${work}`,
+    instructions: `${callerFrame}${opening}${base}\nYou can move or cancel an appointment with change_diary. Never say you cannot.\nCaller number: ${from || "unknown"}. Business: ${businessName}. Times are Africa/Johannesburg. There is no office-hour cutoff. Book any time, including late at night.\n${practice}\n${work}`,
   };
 }
 
@@ -290,6 +310,27 @@ async function runTool(name: string, args: any, config: GrokCallConfig) {
       return { ok: true, saved: true, bookingId: id, message: "SAVED. The appointment is on the diary." };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Not saved.";
+      return { ok: false, saved: false, error: message };
+    }
+  }
+
+  if (name === "change_diary") {
+    if (!config.clientId) return { ok: false, error: "This phone line is not assigned to a client" };
+    try {
+      return await changeClientDiary(config.clientId, {
+        action: String(args.action || "change"),
+        what: "appointment",
+        name: String(args.name || ""),
+        phone: String(args.phone || config.from || ""),
+        date: String(args.date || ""),
+        time: String(args.time || ""),
+        newPhone: String(args.new_phone || ""),
+        newName: String(args.new_name || ""),
+        newDate: String(args.new_date || ""),
+        newTime: String(args.new_time || ""),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Not changed.";
       return { ok: false, saved: false, error: message };
     }
   }

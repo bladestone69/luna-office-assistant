@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { workBriefForClient } from "@/lib/desk-context";
-import { addClientBooking, addClientJob } from "@/lib/client-desk";
+import { addClientBooking, addClientJob, changeClientDiary } from "@/lib/client-desk";
 import { defaultPromptBody, getGrokSetup } from "@/lib/grok-setup";
 import { practiceBriefFor } from "@/lib/practice";
 
@@ -45,7 +45,7 @@ export async function mintOwnerSession(clientId: string, ownerName: string) {
     "Once the owner confirms who it is for, the visit type, and the day and time, call book_appointment immediately. Do not ask them to confirm again.",
     "meeting_type must be one of the visit types in the practice setup. The visit type sets the length. Put the practice-question answers in the answers field.",
     "Pass date as YYYY-MM-DD and time as HH:mm, 24 hour, Africa/Johannesburg. Any time of day or night is allowed.",
-    "If the owner wants a person called at a time, call schedule_call with the phone number, the day, the time, and the instruction. That is what makes Grok dial.",
+    "If the owner says a number, time, name, or instruction is wrong, or says change, move, cancel, or delete, call change_diary immediately. You can change and cancel appointments and calls. Never say you cannot.",
     "If the tool result says saved false, tell the owner the exact reason and do not say it was saved.",
     "Only say the appointment is on the diary when saved is true.",
   ].join("\n");
@@ -123,6 +123,22 @@ export async function runOwnerTool(clientId: string, name: string, args: Record<
       jobId: result.id,
       message: "SAVED. Grok will call that number at that time and follow the instruction.",
     };
+  }
+  if (name === "change_diary") {
+    return changeClientDiary(clientId, {
+      action: String(args.action || "change"),
+      what: String(args.what || ""),
+      name: String(args.name || ""),
+      phone: String(args.phone || args.old_phone || ""),
+      date: String(args.date || ""),
+      time: String(args.time || ""),
+      newPhone: String(args.new_phone || ""),
+      newName: String(args.new_name || ""),
+      newDate: String(args.new_date || ""),
+      newTime: String(args.new_time || ""),
+      newInstruction: String(args.new_instruction || args.instruction || ""),
+      newMeetingType: String(args.meeting_type || ""),
+    });
   }
   return { ok: false, error: "Unknown tool" };
 }

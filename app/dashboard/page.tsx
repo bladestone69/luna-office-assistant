@@ -394,6 +394,21 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
     }
   }
 
+  async function cancelJob(id: string) {
+    setMessage("");
+    try {
+      await api("/api/client/jobs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "done" }),
+      });
+      setMessage("Cancelled. Grok will not make that call.");
+      await onChanged();
+    } catch (cancelError) {
+      setMessage(cancelError instanceof Error ? cancelError.message : "Could not cancel");
+    }
+  }
+
   async function saveBooking() {
     setSaving(true);
     setMessage("");
@@ -542,6 +557,7 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
                 {job.phone ? (
                   <div className={styles.actions}>
                     <button className={styles.tiny} type="button" onClick={() => void callAgain(job.id)}>Call now</button>
+                    <button className={styles.tiny} type="button" onClick={() => void cancelJob(job.id)}>Cancel</button>
                   </div>
                 ) : null}
               </article>

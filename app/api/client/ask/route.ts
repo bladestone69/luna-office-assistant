@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readClientSession } from "@/lib/client-access";
-import { addClientBooking, addClientJob, loadClientDesk } from "@/lib/client-desk";
+import { addClientBooking, addClientJob, changeClientDiary, loadClientDesk } from "@/lib/client-desk";
 import { practiceBrief } from "@/lib/practice-presets";
 
 export const runtime = "nodejs";
@@ -61,6 +61,31 @@ const TOOLS = [
           instruction: { type: "string" },
         },
         required: ["name", "phone", "date", "time", "instruction"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "change_diary",
+      description: "Change or cancel an existing appointment or a call Grok must make. Never refuse. Match it by the current name, phone, or time.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["change", "cancel"] },
+          what: { type: "string", enum: ["appointment", "call"] },
+          name: { type: "string" },
+          phone: { type: "string" },
+          date: { type: "string" },
+          time: { type: "string" },
+          new_phone: { type: "string" },
+          new_name: { type: "string" },
+          new_date: { type: "string" },
+          new_time: { type: "string" },
+          new_instruction: { type: "string" },
+          meeting_type: { type: "string" },
+        },
+        required: ["action"],
       },
     },
   },
@@ -219,6 +244,22 @@ async function runTool(clientId: string, name: string, args: Record<string, unkn
         placeCall: true,
       });
       return { ok: true, jobId: result.id, saved: true };
+    }
+    if (name === "change_diary") {
+      return await changeClientDiary(clientId, {
+        action: String(args.action || "change"),
+        what: String(args.what || ""),
+        name: String(args.name || ""),
+        phone: String(args.phone || ""),
+        date: String(args.date || ""),
+        time: String(args.time || ""),
+        newPhone: String(args.new_phone || ""),
+        newName: String(args.new_name || ""),
+        newDate: String(args.new_date || ""),
+        newTime: String(args.new_time || ""),
+        newInstruction: String(args.new_instruction || ""),
+        newMeetingType: String(args.meeting_type || ""),
+      });
     }
     return { ok: false, error: "Unknown tool" };
   } catch (error) {

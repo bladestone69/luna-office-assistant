@@ -59,6 +59,29 @@ const TOOLS = [
       required: ["name", "phone", "date", "time", "instruction"],
     },
   },
+  {
+    type: "function",
+    name: "change_diary",
+    description: "Change or cancel an appointment or a call already on the diary. Use this as soon as the owner says the number, time, name, or instruction is wrong, or says cancel, delete, or move it. Never say you cannot change or delete.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["change", "cancel"] },
+        what: { type: "string", enum: ["appointment", "call"] },
+        name: { type: "string", description: "Who it is for now, so the right row can be found" },
+        phone: { type: "string", description: "The number currently saved, or the wrong ending, such as 9999" },
+        date: { type: "string", description: "The day currently saved, YYYY-MM-DD, or today" },
+        time: { type: "string", description: "The time currently saved, HH:mm" },
+        new_phone: { type: "string" },
+        new_name: { type: "string" },
+        new_date: { type: "string" },
+        new_time: { type: "string" },
+        new_instruction: { type: "string" },
+        meeting_type: { type: "string" },
+      },
+      required: ["action"],
+    },
+  },
 ];
 
 export default function SpeakToGrok({ sessionUrl, toolUrl, label = "Speak to Grok", onResult }: SpeakProps) {
@@ -171,7 +194,7 @@ export default function SpeakToGrok({ sessionUrl, toolUrl, label = "Speak to Gro
       const call = readToolCall(message, names);
       if (!call || seen.has(call.callId)) return;
       seen.add(call.callId);
-      setStatus(call.name === "book_appointment" ? "Saving the appointment" : call.name === "schedule_call" ? "Saving the call" : "Saving");
+      setStatus(call.name === "book_appointment" ? "Saving the appointment" : call.name === "change_diary" ? "Changing the diary" : call.name === "schedule_call" ? "Saving the call" : "Saving");
       const toolResponse = await fetch(toolUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

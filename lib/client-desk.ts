@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { bookings, calls, clientUsers, clients, contacts, humeAgents, leads, phoneNumbers, tasks } from "@/db/schema";
 import { APP_TIMEZONE } from "@/lib/constants";
 import { workBriefForClient } from "@/lib/desk-context";
+import { dropCallOrder } from "@/lib/call-orders";
 import { dialTask } from "@/lib/due-calls";
 import { normalizePhone } from "@/lib/grok-call";
 import { getPractice } from "@/lib/practice";
@@ -223,7 +224,7 @@ export async function addClientJob(
 export async function setClientJobStatus(clientId: string, jobId: string, status: "pending" | "done") {
   const [job] = await db
     .update(tasks)
-    .set({ status, updatedAt: new Date() })
+    .set(status === "done" ? { status, placeCall: false, updatedAt: new Date() } : { status, updatedAt: new Date() })
     .where(and(eq(tasks.id, jobId), eq(tasks.clientId, clientId)))
     .returning({ id: tasks.id });
   return Boolean(job);
@@ -366,6 +367,152 @@ function clock(value: string) {
   if (match[3] === "am" && hour === 12) hour = 0;
   if (hour > 23) return "09:00";
   return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+export async function changeClientDiary(
+  clientId: string,
+  input: {
+    action?: string;
+    what?: string;
+    name?: string;
+    phone?: string;
+    date?: string;
+    time?: string;
+    newPhone?: string;
+    newName?: string;
+    newDate?: string;
+    newTime?: string;
+    newInstruction?: string;
+    newMeetingType?: string;
+  },
+) {
+  const action = input.action === "cancel" ? "cancel" : "change";
+  const what = input.what === "appointment" || input.what === "call" ? input.what : "";
+  const now = DateTime.now().setZone(APP_TIMEZONE);
+  const [bookingRows, jobRows] = await Promise.all([
+    db.select().from(bookings).where(and(eq(bookings.clientId, clientId), eq(bookings.status, "confirmed"))),
+    db.select().from(tasks).where(and(eq(tasks.clientId, clientId), eq(tasks.status, "pending"))),
+  ]);
+
+  const needleName = (input.name || "").trim().toLowerCase();
+  const needlePhone = (input.phone || "").replace(/\D/g, "");
+  const needleDay = input.date ? resolveDay(input.date, now) : "";
+
+  function phoneScore(value: string | null | undefined) {
+    const have = (value || "").replace(/\D/g, "");
+    if (!needlePhone || !have) return 0;
+    if (have.endsWith(needlePhone) || needlePhone.endsWith(have.slice(-Math.min(4, have.length)))) return 6;
+    return 0;
+  }
+
+  function dayScore(value: Date | null | undefined) {
+    if (!needleDay || !value) return 0;
+    const day = DateTime.fromJSDate(value).setZone(APP_TIMEZONE).toISODate();
+    return day === needleDay ? 4 : 0;
+  }
+
+  type Hit = { kind: "appointment" | "call"; id: string; score: number; label: string };
+  const hits: Hit[] = [];
+
+  if (what !== "call") {
+    for (const row of bookingRows) {
+      const name = (row.name || "").toLowerCase();
+      let score = phoneScore(row.phone) + dayScore(row.startDateTime);
+      if (needleName && name.includes(needleName)) score += 4;
+      if (score > 0) {
+        const when = DateTime.fromJSDate(row.startDateTime).setZone(APP_TIMEZONE).toFormat("ccc d LLL HH:mm");
+        hits.push({ kind: "appointment", id: row.id, score, label: `${when} ${row.meetingType} ${row.name || ""} ${row.phone || ""}`.trim() });
+      }
+    }
+  }
+
+  if (what !== "appointment") {
+    for (const row of jobRows) {
+      const name = `${row.title} ${row.description || ""}`.toLowerCase();
+      let score = phoneScore(row.callPhone) + dayScore(row.dueAt);
+      if (needleName && name.includes(needleName)) score += 4;
+      if (row.placeCall) score += 1;
+      if (score > 0) {
+        const when = row.dueAt ? DateTime.fromJSDate(row.dueAt).setZone(APP_TIMEZONE).toFormat("ccc d LLL HH:mm") : "no time";
+        hits.push({ kind: "call", id: row.id, score, label: `${when} ${row.title} ${row.callPhone || ""}`.trim() });
+      }
+    }
+  }
+
+  hits.sort((a, b) => b.score - a.score);
+  const chosen = hits[0] && (hits.length === 1 || hits[0].score >= hits[1].score + 2) ? hits[0] : null;
+  const onlyCall = !chosen && jobRows.filter((row) => row.placeCall).length === 1 && (what === "call" || Boolean(input.newPhone));
+  const target = chosen || (onlyCall
+    ? { kind: "call" as const, id: jobRows.find((row) => row.placeCall)!.id, score: 1, label: "the open call" }
+    : null);
+
+  if (!target) {
+    const choices = hits.slice(0, 5).map((hit) => hit.label).join("; ");
+    throw new Error(choices ? `Not changed. Say which one: ${choices}` : "Not changed. Nothing on the diary matched.");
+  }
+
+  if (target.kind === "appointment") {
+    const row = bookingRows.find((item) => item.id === target.id)!;
+    if (action === "cancel") {
+      await db.update(bookings).set({ status: "cancelled", updatedAt: new Date() }).where(and(eq(bookings.id, row.id), eq(bookings.clientId, clientId)));
+      return { ok: true, saved: true, message: `CANCELLED. ${row.name || "The appointment"} is off the diary.` };
+    }
+    const nextName = (input.newName || row.name || "Appointment").trim().slice(0, 120);
+    const nextPhone = input.newPhone ? normalizePhone(input.newPhone) : row.phone || "";
+    const visit = input.newMeetingType ? matchVisit(await getPractice(clientId), input.newMeetingType) : null;
+    const minutes = visit ? visit.minutes : Math.max(5, Math.round((row.endDateTime.getTime() - row.startDateTime.getTime()) / 60000));
+    let start = DateTime.fromJSDate(row.startDateTime).setZone(APP_TIMEZONE);
+    if (input.newDate || input.newTime) {
+      const moved = parseBookingStart({
+        date: input.newDate || start.toISODate() || "",
+        time: input.newTime || start.toFormat("HH:mm"),
+      });
+      if (!moved.isValid) throw new Error("Not changed. Give a day and a time.");
+      start = moved;
+    }
+    const end = start.plus({ minutes });
+    await db.update(bookings).set({
+      name: nextName,
+      phone: nextPhone,
+      meetingType: visit?.name || input.newMeetingType || row.meetingType,
+      title: `${visit?.name || row.meetingType} - ${nextName}`,
+      startDateTime: start.toJSDate(),
+      endDateTime: end.toJSDate(),
+      updatedAt: new Date(),
+    }).where(and(eq(bookings.id, row.id), eq(bookings.clientId, clientId)));
+    return { ok: true, saved: true, message: `CHANGED. ${nextName} is now ${start.toFormat("ccc d LLL HH:mm")}${nextPhone ? ` on ${nextPhone}` : ""}.` };
+  }
+
+  const job = jobRows.find((item) => item.id === target.id)!;
+  if (action === "cancel") {
+    await db.update(tasks).set({ status: "done", placeCall: false, callError: "Cancelled by the owner.", updatedAt: new Date() }).where(and(eq(tasks.id, job.id), eq(tasks.clientId, clientId)));
+    await dropCallOrder(job.id);
+    return { ok: true, saved: true, message: `CANCELLED. Grok will not call ${job.callPhone || "that number"}.` };
+  }
+  const nextPhone = input.newPhone ? normalizePhone(input.newPhone) : job.callPhone || "";
+  if (input.newPhone && !nextPhone) throw new Error("Not changed. That is not a phone number.");
+  let dueAt = job.dueAt;
+  if (input.newDate || input.newTime) {
+    const current = job.dueAt ? DateTime.fromJSDate(job.dueAt).setZone(APP_TIMEZONE) : now;
+    const moved = parseBookingStart({
+      date: input.newDate || current.toISODate() || "",
+      time: input.newTime || current.toFormat("HH:mm"),
+    });
+    if (!moved.isValid) throw new Error("Not changed. Give a day and a time.");
+    dueAt = moved.toJSDate();
+  }
+  const instruction = (input.newInstruction || "").trim().slice(0, 2000);
+  const description = [instruction || job.description || "", nextPhone ? `Phone: ${nextPhone}` : ""].filter(Boolean).join("\n").slice(0, 2000);
+  await db.update(tasks).set({
+    callPhone: nextPhone || null,
+    description,
+    dueAt,
+    placeCall: Boolean(nextPhone && dueAt),
+    callError: null,
+    updatedAt: new Date(),
+  }).where(and(eq(tasks.id, job.id), eq(tasks.clientId, clientId)));
+  const when = dueAt ? DateTime.fromJSDate(dueAt).setZone(APP_TIMEZONE).toFormat("ccc d LLL HH:mm") : "the same time";
+  return { ok: true, saved: true, message: `CHANGED. Grok will call ${nextPhone || "that number"} at ${when}.` };
 }
 
 export async function cancelClientBooking(clientId: string, bookingId: string) {
