@@ -85,68 +85,105 @@ const TOOLS = [
 ];
 
 export default function SpeakToGrok({ sessionUrl, toolUrl, label = "Speak to Grok", onResult }: SpeakProps) {
-  const [live, setLive] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "connecting" | "live">("idle");
   const [status, setStatus] = useState("This session is with the owner, not a caller.");
   const [caption, setCaption] = useState("");
-  const socketRef = useRef<WebSocket | null>(null);
-  const stopRef = useRef<(() => void) | null>(null);
+  const sessionsRef = useRef<Array<{ stop: () => void }>>([]);
   const holdRef = useRef(false);
 
-  useEffect(() => () => stopRef.current?.(), []);
+  function stopAll() {
+    const open = sessionsRef.current.splice(0);
+    for (const session of open) session.stop();
+    setPhase("idle");
+    setStatus(open.length ? "Session ended. That was the owner, not a caller." : "This session is with the owner, not a caller.");
+  }
+
+  useEffect(() => () => {
+    const open = sessionsRef.current.splice(0);
+    for (const session of open) session.stop();
+  }, []);
 
   async function start() {
+    stopAll();
     const audio = new AudioContext();
+    const sources: AudioBufferSourceNode[] = [];
+    let closed = false;
+    const session = {
+      stop: () => {
+        if (closed) return;
+        closed = true;
+        stream?.getTracks().forEach((track) => track.stop());
+        for (const source of sources) {
+          try { source.stop(); } catch { /* already finished */ }
+        }
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) ws.close();
+        void audio.close().catch(() => undefined);
+      },
+    };
+    let stream: MediaStream | null = null;
+    let ws: WebSocket | null = null;
+    sessionsRef.current.push(session);
     holdRef.current = false;
+    setPhase("connecting");
     setStatus("Connecting");
     setCaption("");
     try {
       const response = await fetch(sessionUrl, { method: "POST" });
       const data = await response.json();
+      if (closed) {
+        await audio.close().catch(() => undefined);
+        return;
+      }
       if (!response.ok) {
-        await audio.close();
+        session.stop();
+        sessionsRef.current = sessionsRef.current.filter((item) => item !== session);
+        setPhase("idle");
         setStatus(data.error || "Could not start");
         return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const ws = new WebSocket("wss://api.x.ai/v1/realtime?model=grok-voice-latest", [`xai-client-secret.${data.token}`]);
-      socketRef.current = ws;
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (closed) {
+        stream.getTracks().forEach((track) => track.stop());
+        await audio.close().catch(() => undefined);
+        return;
+      }
+      ws = new WebSocket("wss://api.x.ai/v1/realtime?model=grok-voice-latest", [`xai-client-secret.${data.token}`]);
+      const socket = ws;
       const seen = new Set<string>();
       const names = new Map<string, string>();
       let started = false;
       let nextTime = 0;
 
-      const stop = () => {
-        stopRef.current = null;
-        stream.getTracks().forEach((track) => track.stop());
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
-        void audio.close();
-        socketRef.current = null;
-        setLive(false);
-        setStatus("Session ended. That was the owner, not a caller.");
+      socket.onopen = () => {
+        if (!closed) setPhase("live");
       };
-      stopRef.current = stop;
-
-      ws.onopen = () => setLive(true);
-      ws.onerror = () => setStatus("The voice session failed");
-      ws.onclose = () => {
-        if (stopRef.current) stop();
+      socket.onerror = () => {
+        if (!closed) setStatus("The voice session failed");
       };
-      ws.onmessage = (event) => {
-        void handleMessage(String(event.data), data, ws, () => {
-          if (started) return;
+      socket.onclose = () => {
+        if (!closed) session.stop();
+        sessionsRef.current = sessionsRef.current.filter((item) => item !== session);
+        if (!sessionsRef.current.length) setPhase("idle");
+      };
+      socket.onmessage = (event) => {
+        if (closed) return;
+        void handleMessage(String(event.data), data, socket, () => {
+          if (closed || started) return;
           started = true;
           setStatus("Listening. Grok knows this is the owner.");
-          void startMic(audio, stream, ws);
-          ws.send(JSON.stringify({ type: "response.create" }));
+          void startMic(audio, stream as MediaStream, socket);
+          socket.send(JSON.stringify({ type: "response.create" }));
         }, (delta) => {
-          nextTime = playPcm(audio, delta, nextTime);
+          if (closed) return;
+          nextTime = playPcm(audio, delta, nextTime, sources);
           setStatus("Grok is speaking with the owner");
         }, seen, names);
       };
     } catch (error) {
-      await audio.close().catch(() => undefined);
-      setLive(false);
+      session.stop();
+      sessionsRef.current = sessionsRef.current.filter((item) => item !== session);
+      setPhase("idle");
       setStatus(error instanceof Error ? error.message : "Microphone blocked");
     }
 
@@ -217,8 +254,8 @@ export default function SpeakToGrok({ sessionUrl, toolUrl, label = "Speak to Gro
 
   return (
     <div>
-      <button type="button" onClick={() => (live ? stopRef.current?.() : void start())} style={buttonStyle(live)}>
-        {live ? "End session" : label}
+      <button type="button" onClick={() => (phase === "idle" ? void start() : stopAll())} style={buttonStyle(phase !== "idle")}>
+        {phase === "idle" ? label : "End session"}
       </button>
       <p style={{ margin: "8px 0 0", color: "#d6a86c", fontSize: 13 }}>{status}</p>
       {caption ? <p style={{ margin: "6px 0 0", color: "#d5e2ee", fontSize: 14 }}>{caption}</p> : null}
@@ -291,7 +328,7 @@ function pcm16(samples: Float32Array) {
   return btoa(binary);
 }
 
-function playPcm(audio: AudioContext, b64: string, nextTime: number) {
+function playPcm(audio: AudioContext, b64: string, nextTime: number, sources: AudioBufferSourceNode[]) {
   const binary = atob(b64);
   const samples = new Float32Array(binary.length / 2);
   for (let i = 0; i < samples.length; i++) {
@@ -306,6 +343,11 @@ function playPcm(audio: AudioContext, b64: string, nextTime: number) {
   const source = audio.createBufferSource();
   source.buffer = buffer;
   source.connect(audio.destination);
+  sources.push(source);
+  source.onended = () => {
+    const index = sources.indexOf(source);
+    if (index >= 0) sources.splice(index, 1);
+  };
   const start = Math.max(audio.currentTime + 0.05, nextTime);
   source.start(start);
   return start + buffer.duration;
