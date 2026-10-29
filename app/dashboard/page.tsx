@@ -107,6 +107,17 @@ function weekdayIndex() {
   return { Sun: 6, Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5 }[name] ?? 0;
 }
 
+function weekOffset(day: string) {
+  const monday = (iso: string) => {
+    const [year, month, date] = iso.split("-").map(Number);
+    const utc = new Date(Date.UTC(year, month - 1, date));
+    const weekday = utc.getUTCDay();
+    utc.setUTCDate(utc.getUTCDate() - (weekday === 0 ? 6 : weekday - 1));
+    return utc.getTime();
+  };
+  return Math.round((monday(day) - monday(dayKey(new Date()))) / (7 * 86400000));
+}
+
 function weekDays(offset: number) {
   const start = new Date();
   start.setDate(start.getDate() - weekdayIndex() + offset * 7);
@@ -339,6 +350,9 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
   const days = useMemo(() => weekDays(offset), [offset]);
   const visible = desk.bookings.filter((booking) => booking.status !== "cancelled" && dayKey(booking.start) === selected);
   const jobs = desk.jobs.filter((job) => job.status !== "done" && job.dueAt && dayKey(job.dueAt) === selected);
+  const upcoming = desk.bookings
+    .filter((booking) => booking.status === "confirmed" && new Date(booking.start).getTime() >= Date.now() - 60 * 60 * 1000)
+    .sort((a, b) => +new Date(a.start) - +new Date(b.start));
 
   async function saveWork() {
     setSaving(true);
@@ -402,13 +416,24 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
         name: "",
         phone: "",
         email: "",
-        meetingType: types[0].name,
+        meetingType: types[0]?.name || "Appointment",
         start: "",
-        minutes: String(types[0].minutes),
+        minutes: String(types[0]?.minutes || 30),
         notes: "",
         answers: {},
       });
-      setMessage("Booked. Grok will treat that time as busy.");
+      const bookedDay = dayKey(form.start);
+      setSelected(bookedDay);
+      setOffset(weekOffset(bookedDay));
+      const when = new Date(form.start).toLocaleString("en-ZA", {
+        timeZone: ZONE,
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      setMessage(`Booked for ${when}. It is on the diary.`);
       await onChanged();
     } catch (saveError) {
       setMessage(saveError instanceof Error ? saveError.message : "Could not book");
@@ -449,6 +474,27 @@ function Diary({ desk, onChanged }: { desk: Desk; onChanged: () => Promise<void>
           <button className={styles.tiny} type="button" onClick={() => setOffset((value) => value + 1)}>Next</button>
         </div>
       </header>
+      {upcoming.length ? (
+        <div className={styles.panel} style={{ marginBottom: 16 }}>
+          <span className={styles.label}>Saved appointments</span>
+          <div className={styles.list}>
+            {upcoming.slice(0, 8).map((booking) => (
+              <button
+                key={booking.id}
+                className={styles.item}
+                type="button"
+                onClick={() => {
+                  const day = dayKey(booking.start);
+                  setSelected(day);
+                  setOffset(weekOffset(day));
+                }}
+              >
+                <strong>{booking.name}</strong> · {booking.when} · {booking.meetingType}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className={styles.week}>
         {days.map((date) => {
           const key = dayKey(date);
