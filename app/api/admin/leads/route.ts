@@ -3,7 +3,7 @@ import { isAdminApiRequest } from "@/lib/auth";
 import { listAdminLeads } from "@/lib/admin-data";
 
 export async function GET(req: NextRequest) {
-  if (!isAdminApiRequest(req)) {
+  if (!(await isAdminApiRequest(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

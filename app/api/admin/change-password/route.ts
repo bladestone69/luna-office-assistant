@@ -3,14 +3,14 @@ import { hashPassword } from "@/lib/auth";
 import { isAdminApiRequest } from "@/lib/auth";
 
 export async function PUT(req: NextRequest) {
-  if (!isAdminApiRequest(req)) {
+  if (!(await isAdminApiRequest(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = await req.json().catch(() => null);
   const { currentPassword, newPassword } = body ?? {};
 
-  if (!currentPassword || !newPassword) {
+  if (typeof currentPassword !== "string" || typeof newPassword !== "string" || !currentPassword || !newPassword || currentPassword.length > 1024 || newPassword.length > 1024) {
     return NextResponse.json({ error: "Current and new password are required" }, { status: 400 });
   }
 
@@ -31,7 +31,7 @@ export async function PUT(req: NextRequest) {
   const { adminCredentials } = await import("@/db/schema");
   const { sql } = await import("drizzle-orm");
 
-  const newHash = hashPassword(newPassword);
+  const newHash = await hashPassword(newPassword);
   await db.execute(
     sql`INSERT INTO admin_credentials (id, password_hash, updated_at)
         VALUES (1, ${newHash}, NOW())

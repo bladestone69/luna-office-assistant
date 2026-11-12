@@ -5,7 +5,7 @@ import { setClientMessageStatus } from "@/lib/client-desk";
 const STATUSES = ["new", "contacted", "converted", "lost"] as const;
 
 export async function PATCH(request: NextRequest) {
-  const session = readClientSession(request);
+  const session = await readClientSession(request);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null);
   const id = typeof body?.id === "string" ? body.id : "";

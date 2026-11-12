@@ -19,7 +19,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!isAdminApiRequest(req)) {
+  if (!(await isAdminApiRequest(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -42,7 +42,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!isAdminApiRequest(req)) {
+  if (!(await isAdminApiRequest(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -72,7 +72,7 @@ export async function POST(
         clientId: id,
         name,
         email,
-        passwordHash: hashClientPassword(password),
+        passwordHash: await hashClientPassword(password),
         role: existingUsers.length === 0 ? "admin" : "agent",
       })
       .returning();

@@ -78,7 +78,7 @@ export const bookingSchema = honeypotSchema.extend({
 
 export const adminLoginSchema = z.object({
   username: requiredTrimmedString("Username").max(60),
-  password: requiredTrimmedString("Password").max(120)
+  password: z.string().min(1, "Password is required").max(1024)
 });
 
 export const instructionCreateSchema = z.object({

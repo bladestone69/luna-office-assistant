@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
-import { cookies } from "next/headers";
 import { db } from "@/db";
 import { leads, clients } from "@/db/schema";
-import { verifyAdminSession } from "@/lib/auth";
-
-const ADMIN_COOKIE = "admin_session";
+import { isAdminApiRequest } from "@/lib/auth";
 
 async function authenticate(req: NextRequest) {
-  const token = cookies().get(ADMIN_COOKIE)?.value;
-  if (!token || !verifyAdminSession(token)) {
+  if (!(await isAdminApiRequest(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return null;

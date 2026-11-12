@@ -4,7 +4,7 @@ import { addClientJob, setClientJobStatus } from "@/lib/client-desk";
 import { dialClientJob } from "@/lib/due-calls";
 
 export async function POST(request: NextRequest) {
-  const session = readClientSession(request);
+  const session = await readClientSession(request);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null);
   if (body?.action === "call-now") {
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const session = readClientSession(request);
+  const session = await readClientSession(request);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null);
   const id = typeof body?.id === "string" ? body.id : "";

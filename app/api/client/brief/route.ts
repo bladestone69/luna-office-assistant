@@ -3,7 +3,7 @@ import { readClientSession } from "@/lib/client-access";
 import { saveClientBrief } from "@/lib/client-desk";
 
 export async function PUT(request: NextRequest) {
-  const session = readClientSession(request);
+  const session = await readClientSession(request);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json().catch(() => null);

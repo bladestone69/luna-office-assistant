@@ -6,7 +6,7 @@ import { isAdminApiRequest } from "@/lib/auth";
 import { normalizePhone } from "@/lib/grok-call";
 
 export async function POST(req: NextRequest) {
-  if (!isAdminApiRequest(req)) {
+  if (!(await isAdminApiRequest(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -9,7 +9,7 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; userId: string }> },
 ) {
-  if (!isAdminApiRequest(req)) {
+  if (!(await isAdminApiRequest(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -25,7 +25,7 @@ export async function PUT(
 
     const [updated] = await db
       .update(clientUsers)
-      .set({ passwordHash: hashClientPassword(password) })
+      .set({ passwordHash: await hashClientPassword(password) })
       .where(and(eq(clientUsers.id, userId), eq(clientUsers.clientId, id)))
       .returning();
 

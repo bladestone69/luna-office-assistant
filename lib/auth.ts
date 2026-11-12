@@ -1,117 +1,71 @@
 import "server-only";
-import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import type { NextRequest } from "next/server";
+import { db } from "@/db";
+import { adminCredentials } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import { requiredEnv } from "@/lib/env";
+import { hashSecret, isModernPasswordHash, verifySecret } from "@/lib/password";
+import { createSession, matchesCredential, parseSession } from "@/lib/session";
 
 export const ADMIN_COOKIE = "vercelaura_admin_session";
-const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
-
-function normalizeAdminUsername(value: string) {
-  return value.trim().toLowerCase();
-}
-
-// ─── Password hashing (PBKDF2) ────────────────────────────────────────────────
-
-const ITERATIONS = 100_000;
-const KEY_LEN = 64;
-const SALT_LEN = 32;
-
-export function hashPassword(password: string): string {
-  const salt = randomBytes(SALT_LEN);
-  const hash = createHmac("sha512", requiredEnv("ADMIN_SESSION_SECRET"))
-    .update(salt)
-    .update(password)
-    .digest();
-  // Store as salt:hash (both hex)
-  return salt.toString("hex") + ":" + hash.toString("hex");
-}
-
-export function verifyPassword(password: string, stored: string): boolean {
-  try {
-    const [saltHex, hashHex] = stored.split(":");
-    if (!saltHex || !hashHex) return false;
-    const salt = Buffer.from(saltHex, "hex");
-    const storedHash = Buffer.from(hashHex, "hex");
-    const hash = createHmac("sha512", requiredEnv("ADMIN_SESSION_SECRET"))
-      .update(salt)
-      .update(password)
-      .digest();
-    if (hash.length !== storedHash.length) return false;
-    return timingSafeEqual(hash, storedHash);
-  } catch {
-    return false;
-  }
-}
-
-// ─── Session signing ──────────────────────────────────────────────────────────
-
-function sign(payload: string): string {
-  return createHmac("sha256", requiredEnv("ADMIN_SESSION_SECRET"))
-    .update(payload)
-    .digest("hex");
-}
+export const hashPassword = hashSecret;
 
 function secureCompare(a: string, b: string) {
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
+  const left = Buffer.from(a), right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
 }
 
-// ─── Admin auth ───────────────────────────────────────────────────────────────
+export async function verifyPassword(password: string, stored: string) {
+  if (isModernPasswordHash(stored)) return verifySecret(password, stored);
+  const parts = stored.split(":");
+  if (parts.length !== 2 || !/^[a-f0-9]{64}$/.test(parts[0]) || !/^[a-f0-9]{128}$/.test(parts[1])) return false;
+  const hash = createHmac("sha512", requiredEnv("ADMIN_SESSION_SECRET"))
+    .update(Buffer.from(parts[0], "hex")).update(password).digest("hex");
+  return secureCompare(hash, parts[1]);
+}
+
+async function currentCredential() {
+  const [credential] = await db.select().from(adminCredentials).where(eq(adminCredentials.id, 1)).limit(1);
+  return credential?.passwordHash || process.env.ADMIN_PASSWORD || "";
+}
+
+export async function authenticateAdmin(username: string, password: string) {
+  const expected = (process.env.ADMIN_USERNAME || "ernest").trim().toLowerCase();
+  if (!secureCompare(username.trim().toLowerCase(), expected)) return false;
+  // A database failure must never reactivate an older environment password.
+  const [credential] = await db.select().from(adminCredentials).where(eq(adminCredentials.id, 1)).limit(1);
+  if (!credential?.passwordHash) {
+    const passwordFromEnv = process.env.ADMIN_PASSWORD;
+    return passwordFromEnv && secureCompare(password, passwordFromEnv) ? passwordFromEnv : null;
+  }
+  if (!await verifyPassword(password, credential.passwordHash)) return false;
+  if (!isModernPasswordHash(credential.passwordHash)) {
+    const passwordHash = await hashSecret(password);
+    const [updated] = await db.update(adminCredentials).set({ passwordHash, updatedAt: new Date() })
+      .where(and(eq(adminCredentials.id, 1), eq(adminCredentials.passwordHash, credential.passwordHash)))
+      .returning({ passwordHash: adminCredentials.passwordHash });
+    return updated?.passwordHash || null;
+  }
+  return credential.passwordHash;
+}
 
 export async function verifyAdminCredentials(username: string, password: string) {
-  const expectedUser = normalizeAdminUsername(process.env.ADMIN_USERNAME || "ernest");
-  const userMatch = secureCompare(normalizeAdminUsername(username), expectedUser);
-  if (!userMatch) return false;
-
-  // Check DB-stored hash first (allows password changes to persist)
-  try {
-    const { db } = await import("@/db");
-    const { eq } = await import("drizzle-orm");
-    const { adminCredentials } = await import("@/db/schema");
-    const [cred] = await db.select().from(adminCredentials).limit(1);
-    if (cred?.passwordHash) {
-      return verifyPassword(password, cred.passwordHash);
-    }
-  } catch {
-    // DB not available yet — fall through to env check
-  }
-
-  // Fallback to env var password
-  const envPass = process.env.ADMIN_PASSWORD;
-  if (!envPass) return false;
-  return secureCompare(password, envPass);
+  return Boolean(await authenticateAdmin(username, password));
 }
 
-export function createAdminSession(username: string): string {
-  const expiry = Date.now() + SESSION_TTL_MS;
-  const payload = `${normalizeAdminUsername(username)}|${expiry}`;
-  const signature = sign(payload);
-  return Buffer.from(`${payload}|${signature}`).toString("base64url");
+export function createAdminSession(username: string, credential: string) {
+  if (!credential) throw new Error("Admin credentials are not configured");
+  return createSession({ role: "admin", subject: username.trim().toLowerCase() }, credential);
 }
 
-export function verifyAdminSession(token: string | undefined): boolean {
-  if (!token) return false;
-
-  try {
-    const decoded = Buffer.from(token, "base64url").toString("utf8");
-    const [username, expiryString, signature] = decoded.split("|");
-    if (!username || !expiryString || !signature) return false;
-
-    const payload = `${username}|${expiryString}`;
-    const expectedSig = sign(payload);
-    if (!secureCompare(signature, expectedSig)) return false;
-
-    if (Date.now() > Number(expiryString)) return false;
-    const expectedUser = normalizeAdminUsername(process.env.ADMIN_USERNAME || "ernest");
-    return secureCompare(normalizeAdminUsername(username), expectedUser);
-  } catch {
-    return false;
-  }
+export async function verifyAdminSession(token: string | undefined) {
+  const claims = parseSession(token, "admin");
+  if (!claims || claims.subject !== (process.env.ADMIN_USERNAME || "ernest").trim().toLowerCase()) return false;
+  const credential = await currentCredential();
+  return Boolean(credential) && matchesCredential(claims, credential);
 }
 
 export function isAdminApiRequest(request: NextRequest) {
-  const token = request.cookies.get(ADMIN_COOKIE)?.value;
-  return verifyAdminSession(token);
+  return verifyAdminSession(request.cookies.get(ADMIN_COOKIE)?.value);
 }

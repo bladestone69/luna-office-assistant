@@ -3,7 +3,7 @@ import { readClientSession } from "@/lib/client-access";
 import { getGrokSetup } from "@/lib/grok-setup";
 
 export async function GET(request: NextRequest) {
-  const session = readClientSession(request);
+  const session = await readClientSession(request);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   return NextResponse.json(await getGrokSetup(session.clientId));
 }

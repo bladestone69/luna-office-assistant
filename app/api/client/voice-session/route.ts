@@ -6,7 +6,7 @@ import { readClientSession } from "@/lib/client-access";
 import { mintOwnerSession } from "@/lib/owner-session";
 
 export async function POST(request: NextRequest) {
-  const session = readClientSession(request);
+  const session = await readClientSession(request);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const [user] = await db
     .select()

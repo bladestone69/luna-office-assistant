@@ -1,21 +1,14 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "crypto";
+import { requiredEnv } from "@/lib/env";
+import { hashSecret, isModernPasswordHash, verifySecret } from "@/lib/password";
 
-function secureCompare(a: string, b: string) {
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) {
-    return false;
-  }
-  return timingSafeEqual(aBuf, bBuf);
-}
+export const hashClientPassword = hashSecret;
 
-export function hashClientPassword(password: string): string {
-  return createHmac("sha256", process.env.ADMIN_SESSION_SECRET ?? "luna-secret")
-    .update(password)
-    .digest("hex");
-}
-
-export function verifyClientPassword(password: string, storedHash: string): boolean {
-  return secureCompare(hashClientPassword(password), storedHash);
+export async function verifyClientPassword(password: string, storedHash: string) {
+  if (isModernPasswordHash(storedHash)) return verifySecret(password, storedHash);
+  // Read legacy hashes only to migrate existing users after a successful login.
+  if (!/^[a-f0-9]{64}$/.test(storedHash)) return false;
+  const hash = createHmac("sha256", requiredEnv("ADMIN_SESSION_SECRET")).update(password).digest("hex");
+  return timingSafeEqual(Buffer.from(hash), Buffer.from(storedHash));
 }

@@ -3,7 +3,7 @@ import { readClientSession } from "@/lib/client-access";
 import { addClientBooking, cancelClientBooking } from "@/lib/client-desk";
 
 export async function POST(request: NextRequest) {
-  const session = readClientSession(request);
+  const session = await readClientSession(request);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null);
 
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const session = readClientSession(request);
+  const session = await readClientSession(request);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null);
   const id = typeof body?.id === "string" ? body.id : "";

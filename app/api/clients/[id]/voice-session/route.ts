@@ -6,7 +6,7 @@ import { isAdminApiRequest } from "@/lib/auth";
 import { mintOwnerSession } from "@/lib/owner-session";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!isAdminApiRequest(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminApiRequest(request))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const [client] = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
   if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });

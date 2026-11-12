@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { calls, clientUsers, clients, contacts, humeAgents, leads, phoneNumbers } from "@/db/schema";
-import { CLIENT_COOKIE, parseClientSession } from "@/lib/client-session";
+import { readClientSession } from "@/lib/client-access";
 
 function iso(value: Date | null | undefined) {
   return value ? value.toISOString() : "";
@@ -45,7 +45,7 @@ function formatLeadStatus(value: string | null | undefined) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = parseClientSession(request.cookies.get(CLIENT_COOKIE)?.value);
+  const session = await readClientSession(request);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     ...new Set(callRows.map((row) => row.contactId).filter((value): value is string => Boolean(value))),
   ];
   const contactRows = contactIds.length
-    ? await db.select().from(contacts).where(inArray(contacts.id, contactIds))
+    ? await db.select().from(contacts).where(and(eq(contacts.clientId, session.clientId), inArray(contacts.id, contactIds)))
     : [];
   const contactsById = new Map(contactRows.map((row) => [row.id, row]));
 

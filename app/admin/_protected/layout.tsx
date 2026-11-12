@@ -4,13 +4,13 @@ import { redirect } from "next/navigation";
 import { ADMIN_COOKIE, verifyAdminSession } from "@/lib/auth";
 import { AdminNavTabs } from "@/components/admin/AdminNavTabs";
 
-export default function AdminProtectedLayout({
+export default async function AdminProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const token = cookies().get(ADMIN_COOKIE)?.value;
-  if (!verifyAdminSession(token)) {
+  if (!(await verifyAdminSession(token))) {
     redirect("/admin/login");
   }
 

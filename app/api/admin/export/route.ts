@@ -12,7 +12,7 @@ const exportMap = {
 } as const;
 
 export async function GET(request: NextRequest) {
-  if (!isAdminApiRequest(request)) {
+  if (!(await isAdminApiRequest(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

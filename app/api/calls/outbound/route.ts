@@ -9,7 +9,7 @@ import { placeOutboundCall } from "@/lib/place-call";
 
 async function authenticate(req: NextRequest) {
   const token = cookies().get(ADMIN_COOKIE)?.value;
-  if (!token || !verifyAdminSession(token)) {
+  if (!token || !(await verifyAdminSession(token))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return null;

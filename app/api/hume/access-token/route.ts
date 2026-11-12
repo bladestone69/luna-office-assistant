@@ -5,7 +5,7 @@ import { fail, enforceRateLimit } from "@/lib/api";
 import { optionalEnv, requiredEnv } from "@/lib/env";
 
 export async function POST(request: NextRequest) {
-  if (!isAdminApiRequest(request)) {
+  if (!(await isAdminApiRequest(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

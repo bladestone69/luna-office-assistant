@@ -92,7 +92,7 @@ const TOOLS = [
 ];
 
 export async function POST(request: NextRequest) {
-  const session = readClientSession(request);
+  const session = await readClientSession(request);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const apiKey = process.env.XAI_API_KEY;
