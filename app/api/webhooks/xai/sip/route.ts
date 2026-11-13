@@ -1,6 +1,8 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
+import { db } from "@/db";
+import { calls } from "@/db/schema";
 import { findGrokNumber, joinGrokSipCall, loadGrokConfigForNumber, normalizePhone } from "@/lib/grok-call";
 
 export const runtime = "nodejs";
@@ -34,6 +36,14 @@ export async function POST(req: NextRequest) {
   }
 
   const config = await loadGrokConfigForNumber(to, from);
+  if (config.clientId) {
+    await db.insert(calls).values({
+      clientId: config.clientId,
+      direction: "inbound",
+      humeChatId: callId,
+      startedAt: new Date(),
+    }).catch((error) => console.error("[xai-sip call log]", error));
+  }
   waitUntil(joinGrokSipCall(callId, config).catch((error) => {
     console.error("[xai-sip]", error);
   }));
