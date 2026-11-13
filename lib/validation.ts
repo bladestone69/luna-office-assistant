@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   INSTRUCTION_PRIORITIES,
   INSTRUCTION_STATUSES,
-  MEETING_TYPE_KEYS,
   TOPIC_OPTIONS,
   URGENCY_OPTIONS
 } from "@/lib/constants";
@@ -54,7 +53,7 @@ export const messageSchema = honeypotSchema.extend({
 });
 
 export const bookingAvailabilitySchema = z.object({
-  meetingType: z.enum(MEETING_TYPE_KEYS),
+  meetingType: requiredTrimmedString("Meeting type").max(80),
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format")
@@ -66,7 +65,7 @@ export const bookingSchema = honeypotSchema.extend({
     .max(25)
     .regex(phoneRegex, "Enter a valid phone number"),
   email: z.string().trim().email("Enter a valid email").max(120),
-  meetingType: z.enum(MEETING_TYPE_KEYS),
+  meetingType: requiredTrimmedString("Meeting type").max(80),
   startDateTime: z
     .string()
     .datetime({ offset: true })

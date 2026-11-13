@@ -5,21 +5,25 @@ import {
   createPrivacySafeEvent,
   isSlotAvailable
 } from "@/lib/calendar";
-import { APP_TIMEZONE, MEETING_TYPES, SHEET_TABS } from "@/lib/constants";
+import { APP_TIMEZONE, SHEET_TABS } from "@/lib/constants";
 import {
   bookingConfirmationText,
-  getErnestEmail,
   sendEmail
 } from "@/lib/email";
+import { findMeetingType, resolvePublicClient } from "@/lib/client-routing";
 import { getFirstName, redactIdLikeNumbers } from "@/lib/privacy";
 import { appendSheetRow, isSheetsConfigured } from "@/lib/sheets";
 import { bookingSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
-  const limited = enforceRateLimit(request, "bookings");
-  if (limited) return limited;
-
   const body = await request.json().catch(() => null);
+  const client = await resolvePublicClient(request, body);
+  if (!client) {
+    return fail("This booking link or phone line is not assigned to an active client.", 404);
+  }
+
+  const limited = enforceRateLimit(request, "bookings", client.clientId);
+  if (limited) return limited;
   const parsed = bookingSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -30,7 +34,10 @@ export async function POST(request: NextRequest) {
     return fail("Unable to process request", 400);
   }
 
-  const meeting = MEETING_TYPES[parsed.data.meetingType];
+  const meeting = findMeetingType(client, parsed.data.meetingType);
+  if (!meeting) {
+    return fail("That meeting type is not available for this business.");
+  }
   const safeName = redactIdLikeNumbers(parsed.data.name);
   const start = DateTime.fromISO(parsed.data.startDateTime, { zone: APP_TIMEZONE });
   if (!start.isValid) {
@@ -38,8 +45,8 @@ export async function POST(request: NextRequest) {
   }
 
   const end = start.plus({ minutes: meeting.durationMinutes });
-  const openingHour = 8;
-  const closingHour = 17;
+  const openingHour = client.openingHour;
+  const closingHour = client.closingHour;
 
   if (
     start.hour < openingHour ||
@@ -56,7 +63,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const available = await isSlotAvailable(startIso, endIso);
+    const available = await isSlotAvailable(startIso, endIso, client.clientId);
     if (!available) {
       return NextResponse.json(
         { error: "That slot is no longer available. Please select another time." },
@@ -72,6 +79,7 @@ export async function POST(request: NextRequest) {
       startIso,
       endIso,
       consent: parsed.data.consent,
+      clientId: client.clientId,
     });
 
     const createdAt = new Date().toISOString();
@@ -105,7 +113,7 @@ export async function POST(request: NextRequest) {
         })
       }),
       sendEmail({
-        to: getErnestEmail(),
+        to: client.notificationEmail,
         subject: `New Booking: ${getFirstName(safeName)}`,
         text: [
           "Meeting confirmed via Aura Office Assistant.",

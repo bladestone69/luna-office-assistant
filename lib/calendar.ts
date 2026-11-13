@@ -60,6 +60,9 @@ export async function isSlotAvailable(startIso: string, endIso: string, clientId
 export async function getAvailableSlotsForDate(input: {
   date: string;
   durationMinutes: number;
+  clientId?: string | null;
+  openingHour?: number;
+  closingHour?: number;
 }) {
   const dayStart = DateTime.fromISO(`${input.date}T00:00:00`, { zone: APP_TIMEZONE });
   const dayEnd = dayStart.plus({ days: 1 });
@@ -68,13 +71,19 @@ export async function getAvailableSlotsForDate(input: {
     throw new Error("Invalid date input");
   }
 
-  const busySlots = await getBusySlots(dayStart.toISO()!, dayEnd.toISO()!);
+  const busySlots = await getBusySlots(dayStart.toISO()!, dayEnd.toISO()!, input.clientId);
   const now = DateTime.now().setZone(APP_TIMEZONE);
   const slots: string[] = [];
+  const openingHour = input.openingHour ?? 8;
+  const closingHour = input.closingHour ?? 17;
+  const officeStart = dayStart.set({ hour: openingHour, minute: 0, second: 0, millisecond: 0 });
+  const officeEnd = closingHour === 24
+    ? dayStart.plus({ days: 1 })
+    : dayStart.set({ hour: closingHour, minute: 0, second: 0, millisecond: 0 });
 
   for (
-    let cursor = dayStart;
-    cursor.plus({ minutes: input.durationMinutes }) <= dayEnd;
+    let cursor = officeStart;
+    cursor.plus({ minutes: input.durationMinutes }) <= officeEnd;
     cursor = cursor.plus({ minutes: 15 })
   ) {
     const slotStart = cursor;

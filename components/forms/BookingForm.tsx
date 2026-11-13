@@ -1,15 +1,15 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import { APP_TIMEZONE, MEETING_TYPES } from "@/lib/constants";
-import type { MeetingTypeKey } from "@/lib/constants";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { APP_TIMEZONE } from "@/lib/constants";
 
-type AvailabilityResponse = {
-  slots: string[];
-};
+type AvailabilityResponse = { slots: string[] };
+type MeetingType = { key: string; label: string; durationMinutes: number };
+type BookingConfig = { name: string; slug: string; meetingTypes: MeetingType[]; openingHour: number; closingHour: number };
 
 export function BookingForm() {
-  const [meetingType, setMeetingType] = useState<MeetingTypeKey>("intro");
+  const [meetingTypes, setMeetingTypes] = useState<MeetingType[]>([]);
+  const [meetingType, setMeetingType] = useState("");
   const [date, setDate] = useState("");
   const [slots, setSlots] = useState<string[]>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
@@ -22,6 +22,23 @@ export function BookingForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    fetch(`/api/bookings/config?${params.toString()}`, { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json() as BookingConfig & { error?: string };
+        if (!response.ok) throw new Error(data.error || "Could not load booking setup.");
+        setMeetingTypes(data.meetingTypes || []);
+        setMeetingType(data.meetingTypes?.[0]?.key || "");
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Could not load booking setup."));
+  }, []);
+
+  const tenantParams = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).toString();
+  }, []);
 
   const today = useMemo(
     () => new Date().toLocaleDateString("en-CA", { timeZone: APP_TIMEZONE }),
@@ -39,7 +56,9 @@ export function BookingForm() {
 
     setLoadingSlots(true);
     try {
-      const params = new URLSearchParams({ date, meetingType });
+      const params = new URLSearchParams(tenantParams);
+      params.set("date", date);
+      params.set("meetingType", meetingType);
       const response = await fetch(`/api/bookings/availability?${params.toString()}`);
       const data = (await response.json()) as AvailabilityResponse & { error?: string };
 
@@ -73,7 +92,8 @@ export function BookingForm() {
 
     setSubmitting(true);
     try {
-      const response = await fetch("/api/bookings", {
+      const bookingUrl = tenantParams ? `/api/bookings?${tenantParams}` : "/api/bookings";
+      const response = await fetch(bookingUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -121,14 +141,14 @@ export function BookingForm() {
           className="input"
           value={meetingType}
           onChange={(event) => {
-            setMeetingType(event.target.value as MeetingTypeKey);
+            setMeetingType(event.target.value);
             setSlots([]);
             setSelectedSlot("");
           }}
           required
         >
-          {Object.entries(MEETING_TYPES).map(([key, value]) => (
-            <option key={key} value={key}>
+          {meetingTypes.map((value) => (
+            <option key={value.key} value={value.key}>
               {value.label}
             </option>
           ))}
