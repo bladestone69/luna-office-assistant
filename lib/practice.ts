@@ -22,10 +22,12 @@ export async function getPractice(clientId: string): Promise<PracticeSetup> {
     trade: row.trade,
     visitTypes: readList(row.visitTypes),
     questions: readList(row.questions),
+    openingHour: row.openingHour,
+    closingHour: row.closingHour,
   });
 }
 
-export async function savePractice(clientId: string, input: { trade?: unknown; visitTypes?: unknown; questions?: unknown }) {
+export async function savePractice(clientId: string, input: { trade?: unknown; visitTypes?: unknown; questions?: unknown; openingHour?: unknown; closingHour?: unknown }) {
   const practice = cleanPractice(input);
   const names = practice.visitTypes.map((item) => item.name.toLowerCase());
   if (new Set(names).size !== names.length) {
@@ -36,6 +38,8 @@ export async function savePractice(clientId: string, input: { trade?: unknown; v
     trade: practice.trade,
     visitTypes: JSON.stringify(practice.visitTypes),
     questions: JSON.stringify(practice.questions),
+    openingHour: practice.openingHour,
+    closingHour: practice.closingHour,
     updatedAt: new Date(),
   };
   await db
@@ -47,6 +51,8 @@ export async function savePractice(clientId: string, input: { trade?: unknown; v
         trade: values.trade,
         visitTypes: values.visitTypes,
         questions: values.questions,
+        openingHour: values.openingHour,
+        closingHour: values.closingHour,
         updatedAt: values.updatedAt,
       },
     });
