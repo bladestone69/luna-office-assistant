@@ -1,5 +1,15 @@
 export const APP_TIMEZONE = "Africa/Johannesburg";
 
+export const DEFAULT_OFFICE_HOURS = {
+  openingHour: 8,
+  closingHour: 17,
+} as const;
+
+export type OfficeHours = {
+  openingHour: number;
+  closingHour: number;
+};
+
 export const MEETING_TYPES = {
   intro: { label: "Intro Call (15m)", durationMinutes: 15 },
   review: { label: "Review Meeting (30m)", durationMinutes: 30 },
