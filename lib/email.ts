@@ -27,9 +27,6 @@ function getSender() {
   return requiredEnv("SMTP_FROM");
 }
 
-export function getErnestEmail() {
-  return requiredEnv("ERNEST_EMAIL");
-}
 
 export async function sendEmail(payload: EmailPayload) {
   const transporter = getTransporter();
