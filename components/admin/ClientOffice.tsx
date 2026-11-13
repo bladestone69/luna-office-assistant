@@ -8,6 +8,8 @@ type Practice = {
   trade: TradeId;
   visitTypes: { name: string; minutes: number }[];
   questions: { prompt: string; required: boolean }[];
+  openingHour: number;
+  closingHour: number;
 };
 
 type DiaryBooking = {
@@ -126,6 +128,8 @@ export function ClientPracticeTab({ clientId, clientName }: { clientId: string; 
   const [trade, setTrade] = useState<TradeId>("custom");
   const [visitTypes, setVisitTypes] = useState(tradePreset("custom").visitTypes);
   const [questions, setQuestions] = useState(tradePreset("custom").questions);
+  const [openingHour, setOpeningHour] = useState(8);
+  const [closingHour, setClosingHour] = useState(17);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [ready, setReady] = useState(false);
@@ -138,6 +142,8 @@ export function ClientPracticeTab({ clientId, clientName }: { clientId: string; 
         setTrade(data.trade);
         setVisitTypes(data.visitTypes);
         setQuestions(data.questions || []);
+        setOpeningHour(data.openingHour ?? 8);
+        setClosingHour(data.closingHour ?? 17);
       })
       .catch((loadError: unknown) => {
         if (!cancelled) setMessage(loadError instanceof Error ? loadError.message : "Could not load the setup");
@@ -165,7 +171,7 @@ export function ClientPracticeTab({ clientId, clientName }: { clientId: string; 
       await api(`/api/clients/${clientId}/practice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trade, visitTypes, questions }),
+        body: JSON.stringify({ trade, visitTypes, questions, openingHour, closingHour }),
       });
       setMessage(`Saved for ${clientName}. Their diary now uses these visits and questions.`);
     } catch (saveError) {
@@ -239,6 +245,19 @@ export function ClientPracticeTab({ clientId, clientName }: { clientId: string; 
           <button className={styles.btnGhost} type="button" onClick={() => setVisitTypes([...visitTypes, { name: "", minutes: 30 }])}>
             Add visit
           </button>
+        </div>
+        <div className={styles.infoCard}>
+          <h3 className={styles.infoCardTitle}>Office hours</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <label className={styles.formField}>
+              <span className={styles.fieldLabel}>Opens</span>
+              <input className="input" type="number" min={0} max={23} value={openingHour} onChange={(event) => setOpeningHour(Number(event.target.value))} />
+            </label>
+            <label className={styles.formField}>
+              <span className={styles.fieldLabel}>Closes</span>
+              <input className="input" type="number" min={1} max={24} value={closingHour} onChange={(event) => setClosingHour(Number(event.target.value))} />
+            </label>
+          </div>
         </div>
         <div className={styles.infoCard}>
           <h3 className={styles.infoCardTitle}>Questions Grok must ask</h3>
