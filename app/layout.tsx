@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Aura — AI Receptionist",
-  description: "Aura desk for the Grok receptionist and personal assistant.",
+  title: "Aura | AI Office Bundles and Services",
+  description: "Explore Aura’s AI office bundles and services for South African businesses. Meet Luna, the AI personal assistant for calls, bookings, and follow-ups.",
 };
 
 export default function RootLayout({
