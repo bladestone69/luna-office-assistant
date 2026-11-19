@@ -6,6 +6,8 @@ export type PracticeSetup = {
   trade: TradeId;
   visitTypes: VisitType[];
   questions: IntakeQuestion[];
+  openingHour: number;
+  closingHour: number;
 };
 
 export const TRADES: { id: TradeId; label: string; blurb: string; visitTypes: VisitType[]; questions: IntakeQuestion[] }[] = [
@@ -103,6 +105,8 @@ export function tradePreset(id: string): PracticeSetup {
     trade: trade.id,
     visitTypes: trade.visitTypes.map((item) => ({ ...item })),
     questions: trade.questions.map((item) => ({ ...item })),
+    openingHour: 8,
+    closingHour: 17,
   };
 }
 
@@ -110,7 +114,7 @@ export function tradeLabel(id: string) {
   return TRADES.find((item) => item.id === id)?.label || "Custom";
 }
 
-export function cleanPractice(input: { trade?: unknown; visitTypes?: unknown; questions?: unknown }): PracticeSetup {
+export function cleanPractice(input: { trade?: unknown; visitTypes?: unknown; questions?: unknown; openingHour?: unknown; closingHour?: unknown }): PracticeSetup {
   const trade = typeof input.trade === "string" && isTrade(input.trade) ? input.trade : "custom";
   const visitSource = Array.isArray(input.visitTypes) ? input.visitTypes : [];
   const questionSource = Array.isArray(input.questions) ? input.questions : [];
@@ -138,8 +142,13 @@ export function cleanPractice(input: { trade?: unknown; visitTypes?: unknown; qu
     })
     .filter((item) => item.prompt);
 
-  if (!visitTypes.length) return tradePreset(trade);
-  return { trade, visitTypes, questions };
+  const opening = Math.min(23, Math.max(0, Math.round(Number(input.openingHour ?? 8))));
+  const closing = Math.min(24, Math.max(opening + 1, Math.round(Number(input.closingHour ?? 17))));
+  if (!visitTypes.length) {
+    const preset = tradePreset(trade);
+    return { ...preset, openingHour: opening, closingHour: closing };
+  }
+  return { trade, visitTypes, questions, openingHour: opening, closingHour: closing };
 }
 
 export function matchVisit(practice: PracticeSetup, name: string) {
@@ -165,6 +174,6 @@ export function practiceBrief(practice: PracticeSetup) {
     questions,
     "Do not call book_appointment until the required answers and a visit type are known.",
     "Do not give medical, dental, legal, or financial advice. Book the time or take a message.",
-    "Any hour is allowed. There is no office-hour cutoff.",
+    `Office hours are ${String(practice.openingHour).padStart(2, "0")}:00 to ${String(practice.closingHour).padStart(2, "0")}:00. Do not book outside those hours.`,
   ].join("\n");
 }

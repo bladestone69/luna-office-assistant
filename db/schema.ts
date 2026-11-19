@@ -16,6 +16,8 @@ export const clients = pgTable("clients", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   email: text("email").notNull(),
+  notificationEmail: text("notification_email"),
+  slug: text("slug").unique(),
   phone: text("phone"),
   industry: text("industry"),
   plan: text("plan").default("starter"),
@@ -175,6 +177,8 @@ export const practiceProfiles = pgTable("practice_profiles", {
   trade: text("trade").notNull().default("custom"),
   visitTypes: text("visit_types").notNull().default("[]"),
   questions: text("questions").notNull().default("[]"),
+  openingHour: integer("opening_hour").notNull().default(8),
+  closingHour: integer("closing_hour").notNull().default(17),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { leads } from "@/db/schema";
 import { isHoneypotTriggered } from "@/lib/api";
-import { getErnestEmail, sendEmail } from "@/lib/email";
+import { getAdminNotificationEmail, sendEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     try {
       await sendEmail({
-        to: getErnestEmail(),
+        to: getAdminNotificationEmail(),
         subject: `New signup from ${fullName} - Aura Office`,
         text: [
           "New Aura Office signup - callback needed.",

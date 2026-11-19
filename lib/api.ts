@@ -9,10 +9,11 @@ export function fail(message: string, status = 400) {
 
 export function enforceRateLimit(
   request: NextRequest,
-  scope: string
+  scope: string,
+  clientId = "global"
 ): NextResponse | null {
   const ip = getRequestIp(request);
-  const result = rateLimit(`${scope}:${ip}`);
+  const result = rateLimit(`${scope}:${clientId}:${ip}`);
   if (!result.allowed) {
     return NextResponse.json(
       { error: `Rate limit exceeded. Try again in ${result.retryAfterSec}s.` },

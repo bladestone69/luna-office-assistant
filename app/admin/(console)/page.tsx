@@ -1982,6 +1982,7 @@ function NewClientModal({
     contactName: string;
     contactEmail: string;
     contactPhone: string;
+    lineId: string;
     plan: "starter" | "pro";
   }) => Promise<void>;
 }) {
@@ -1990,9 +1991,20 @@ function NewClientModal({
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [lines, setLines] = useState<{ id: string; number: string }[]>([]);
+  const [lineId, setLineId] = useState("");
   const [plan, setPlan] = useState<"starter" | "pro">("starter");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    void apiRequest<{ id: string; number: string }[]>("/api/admin/available-lines")
+      .then((items) => {
+        setLines(items);
+        setLineId(items[0]?.id || "");
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Could not load available VoIP numbers"));
+  }, []);
 
   async function handleCreate() {
     setError("");
@@ -2004,6 +2016,7 @@ function NewClientModal({
         contactName,
         contactEmail,
         contactPhone,
+        lineId,
         plan,
       });
     } catch (createError) {
@@ -2036,6 +2049,13 @@ function NewClientModal({
             </div>
           ))}
           <div className={styles.formField}>
+            <label className={styles.fieldLabel}>VoIP number</label>
+            <select className="input" value={lineId} onChange={(event) => setLineId(event.target.value)} required>
+              {!lines.length ? <option value="">No unassigned numbers available</option> : null}
+              {lines.map((line) => <option key={line.id} value={line.id}>{line.number}</option>)}
+            </select>
+          </div>
+          <div className={styles.formField}>
             <label className={styles.fieldLabel}>Plan</label>
             <div className={styles.planPicker}>
               {(["starter", "pro"] as const).map((planOption) => (
@@ -2057,7 +2077,7 @@ function NewClientModal({
           <button className={styles.btnGhost} onClick={onClose} type="button">
             Cancel
           </button>
-          <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={() => void handleCreate()} disabled={!name || !contactEmail || saving} type="button">
+          <button className={styles.btnPrimary} style={{ width: "auto" }} onClick={() => void handleCreate()} disabled={!name || !contactEmail || !lineId || saving} type="button">
             {saving ? "Saving..." : "Create Client"}
           </button>
         </div>

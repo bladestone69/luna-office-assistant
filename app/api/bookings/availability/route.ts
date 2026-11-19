@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAvailableSlotsForDate } from "@/lib/calendar";
-import { MEETING_TYPES } from "@/lib/constants";
 import { fail, enforceRateLimit } from "@/lib/api";
 import { bookingAvailabilitySchema } from "@/lib/validation";
+import { findMeetingType, resolvePublicClient } from "@/lib/client-routing";
 
 export async function GET(request: NextRequest) {
-  const limited = enforceRateLimit(request, "availability");
+  const client = await resolvePublicClient(request);
+  if (!client) return fail("This booking link or phone line is not assigned to an active client.", 404);
+
+  const limited = enforceRateLimit(request, "availability", client.clientId);
   if (limited) return limited;
 
   const params = request.nextUrl.searchParams;
@@ -18,12 +21,17 @@ export async function GET(request: NextRequest) {
     return fail(parsed.error.issues[0]?.message || "Invalid request");
   }
 
-  const durationMinutes = MEETING_TYPES[parsed.data.meetingType].durationMinutes;
+  const meeting = findMeetingType(client, parsed.data.meetingType);
+  if (!meeting) return fail("That meeting type is not available for this business.");
+  const durationMinutes = meeting.durationMinutes;
 
   try {
     const slots = await getAvailableSlotsForDate({
       date: parsed.data.date,
-      durationMinutes
+      durationMinutes,
+      clientId: client.clientId,
+      openingHour: client.openingHour,
+      closingHour: client.closingHour,
     });
     return NextResponse.json({ slots });
   } catch {

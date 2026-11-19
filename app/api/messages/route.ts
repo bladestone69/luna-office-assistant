@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fail, enforceRateLimit, isHoneypotTriggered } from "@/lib/api";
 import { SHEET_TABS } from "@/lib/constants";
-import { getErnestEmail, sendEmail } from "@/lib/email";
+import { getAdminNotificationEmail, sendEmail } from "@/lib/email";
 import {
   isUrgentMessage,
   redactIdLikeNumbers,
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   ]);
 
   await sendEmail({
-    to: getErnestEmail(),
+    to: getAdminNotificationEmail(),
     subject: `${subjectPrefix}New Message: ${safeName}`,
     text: [
       "New message submitted via Aura Office Assistant.",

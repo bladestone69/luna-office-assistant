@@ -23,6 +23,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       trade: body.trade,
       visitTypes: body.visitTypes,
       questions: body.questions,
+      openingHour: body.openingHour,
+      closingHour: body.closingHour,
     });
     return NextResponse.json({ ok: true, practice });
   } catch (error) {
